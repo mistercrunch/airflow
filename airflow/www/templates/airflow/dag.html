@@ -40,6 +40,11 @@
       {% endif %}
     </h3>
     <h4 class="pull-right">
+      <a class="label label-primary" href="/admin/dagrun/?flt2_dag_id_equals={{ dag.dag_id }}">
+        scheduled in: {{ dag.scheduled_in }}
+      </a>
+    </h4>
+    <h4 class="pull-right">
       <a class="label label-default" href="/admin/dagrun/?flt2_dag_id_equals={{ dag.dag_id }}">
         schedule: {{ dag.schedule_interval }}
       </a>
