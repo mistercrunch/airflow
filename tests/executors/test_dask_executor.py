@@ -25,6 +25,7 @@ import pytest
 from airflow.configuration import conf
 from airflow.jobs import BackfillJob
 from airflow.models import DagBag
+from airflow.models.queue_task_run import TaskExecutionRequest
 from airflow.utils import timezone
 
 try:
@@ -51,11 +52,15 @@ class TestBaseDask(unittest.TestCase):
         # start the executor
         executor.start()
 
-        success_command = ['true', 'some_parameter']
-        fail_command = ['false', 'some_parameter']
+        success_task_execution_request = TaskExecutionRequest(
+            None, None, None, mock_command=["true", "some_parameter"]
+        )
+        fail_task_execution_request = TaskExecutionRequest(
+            None, None, None, mock_command=["false", "some_parameter"]
+        )
 
-        executor.execute_async(key='success', command=success_command)
-        executor.execute_async(key='fail', command=fail_command)
+        executor.execute_async(key='success', task_execution_request=success_task_execution_request)
+        executor.execute_async(key='fail', task_execution_request=fail_task_execution_request)
 
         success_future = next(
             k for k, v in executor.futures.items() if v == 'success')

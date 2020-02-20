@@ -36,6 +36,7 @@ from airflow import DAG
 from airflow.configuration import conf
 from airflow.executors import celery_executor
 from airflow.models import TaskInstance
+from airflow.models.queue_task_run import TaskExecutionRequest
 from airflow.models.taskinstance import SimpleTaskInstance
 from airflow.operators.bash import BashOperator
 from airflow.utils.state import State
@@ -55,14 +56,16 @@ class TestCeleryExecutor(unittest.TestCase):
     @contextlib.contextmanager
     def _prepare_app(self, broker_url=None, execute=None):
         broker_url = broker_url or conf.get('celery', 'BROKER_URL')
-        execute = execute or celery_executor.execute_command.__wrapped__
+        execute = execute or celery_executor.execute_task_execution_request.__wrapped__
 
         test_config = dict(celery_executor.celery_configuration)
         test_config.update({'broker_url': broker_url})
         test_app = Celery(broker_url, config_source=test_config)
         test_execute = test_app.task(execute)
         patch_app = mock.patch('airflow.executors.celery_executor.app', test_app)
-        patch_execute = mock.patch('airflow.executors.celery_executor.execute_command', test_execute)
+        patch_execute = mock.patch(
+            'airflow.executors.celery_executor.execute_task_execution_request', test_execute
+        )
 
         with patch_app, patch_execute:
             try:
@@ -81,18 +84,36 @@ class TestCeleryExecutor(unittest.TestCase):
             executor.start()
 
             with start_worker(app=app, logfile=sys.stdout, loglevel='info'):
-                success_command = ['true', 'some_parameter']
-                fail_command = ['false', 'some_parameter']
+                success_task_execution_request = TaskExecutionRequest(
+                    dag_id="test_executor_dag",
+                    task_id="success",
+                    execution_date=None,
+                    local=True,
+                    mock_command=["bash", "-c", "exit 0"],
+                )
+                fail_task_execution_request = TaskExecutionRequest(
+                    dag_id="test_executor_dag",
+                    task_id="fail",
+                    execution_date=None,
+                    local=True,
+                    mock_command=["bash", "-c", "exit 1"],
+                )
                 execute_date = datetime.datetime.now()
 
-                cached_celery_backend = celery_executor.execute_command.backend
+                cached_celery_backend = celery_executor.execute_task_execution_request.backend
                 task_tuples_to_send = [
-                    (('success', 'fake_simple_ti', execute_date, 0),
-                     None, success_command, celery_executor.celery_configuration['task_default_queue'],
-                     celery_executor.execute_command),
-                    (('fail', 'fake_simple_ti', execute_date, 0),
-                     None, fail_command, celery_executor.celery_configuration['task_default_queue'],
-                     celery_executor.execute_command)
+                    (
+                        ('success', 'fake_simple_ti', execute_date, 0),
+                        None, success_task_execution_request,
+                        celery_executor.celery_configuration['task_default_queue'],
+                        celery_executor.execute_task_execution_request
+                    ),
+                    (
+                        ('fail', 'fake_simple_ti', execute_date, 0),
+                        None, fail_task_execution_request,
+                        celery_executor.celery_configuration['task_default_queue'],
+                        celery_executor.execute_task_execution_request
+                    )
                 ]
 
                 chunksize = executor._num_tasks_per_send_process(len(task_tuples_to_send))
@@ -146,8 +167,9 @@ class TestCeleryExecutor(unittest.TestCase):
                 dag=DAG(dag_id='id'),
                 start_date=datetime.datetime.now()
             )
-            value_tuple = 'command', 1, None, \
-                SimpleTaskInstance(ti=TaskInstance(task=task, execution_date=datetime.datetime.now()))
+            qtr = TaskExecutionRequest(None, None, None, mock_command=["command"])
+            sti = SimpleTaskInstance(ti=TaskInstance(task=task, execution_date=datetime.datetime.now()))
+            value_tuple = qtr, 1, None, sti
             key = ('fail', 'fake_simple_ti', datetime.datetime.now(), 0)
             executor.queued_tasks[key] = value_tuple
             executor.heartbeat()

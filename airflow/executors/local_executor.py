@@ -49,7 +49,8 @@ from queue import Empty, Queue  # pylint: disable=unused-import  # noqa: F401
 from typing import Any, List, Optional, Tuple, Union  # pylint: disable=unused-import # noqa: F401
 
 from airflow import AirflowException
-from airflow.executors.base_executor import NOT_STARTED_MESSAGE, PARALLELISM, BaseExecutor, CommandType
+from airflow.executors.base_executor import NOT_STARTED_MESSAGE, PARALLELISM, BaseExecutor
+from airflow.models.queue_task_run import TaskExecutionRequest
 from airflow.models.taskinstance import (  # pylint: disable=unused-import # noqa: F401
     TaskInstanceKeyType, TaskInstanceStateType,
 )
@@ -59,7 +60,7 @@ from airflow.utils.state import State
 # This is a work to be executed by a worker.
 # It can Key and Command - but it can also be None, None which is actually a
 # "Poison Pill" - worker seeing Poison Pill should take the pill and ... die instantly.
-ExecutorWorkType = Tuple[Optional[TaskInstanceKeyType], Optional[CommandType]]
+ExecutorWorkType = Tuple[Optional[TaskInstanceKeyType], Optional[TaskExecutionRequest]]
 
 
 class LocalWorkerBase(Process, LoggingMixin):
@@ -74,17 +75,18 @@ class LocalWorkerBase(Process, LoggingMixin):
         self.daemon: bool = True
         self.result_queue: 'Queue[TaskInstanceStateType]' = result_queue
 
-    def execute_work(self, key: TaskInstanceKeyType, command: CommandType) -> None:
+    def execute_work(self, key: TaskInstanceKeyType, task_execution_request: TaskExecutionRequest) -> None:
         """
-        Executes command received and stores result state in queue.
+        Executes task execution request received and stores result state in queue.
 
         :param key: the key to identify the task instance
-        :param command: the command to execute
+        :param task_execution_request: the task execution request to execute
         """
         if key is None:
             return
-        self.log.info("%s running %s", self.__class__.__name__, command)
+        self.log.info("%s running %s", self.__class__.__name__, task_execution_request)
         try:
+            command = task_execution_request.as_command()
             subprocess.check_call(command, close_fds=True)
             state = State.SUCCESS
         except subprocess.CalledProcessError as e:
@@ -99,18 +101,18 @@ class LocalWorker(LocalWorkerBase):
 
     :param result_queue: queue where results of the tasks are put.
     :param key: key identifying task instance
-    :param command: Command to execute
+    :param task_execution_request: task execution request to execute
     """
     def __init__(self,
                  result_queue: 'Queue[TaskInstanceStateType]',
                  key: TaskInstanceKeyType,
-                 command: CommandType):
+                 task_execution_request: TaskExecutionRequest):
         super().__init__(result_queue)
         self.key: TaskInstanceKeyType = key
-        self.command: CommandType = command
+        self.task_execution_request: TaskExecutionRequest = task_execution_request
 
     def run(self) -> None:
-        self.execute_work(key=self.key, command=self.command)
+        self.execute_work(key=self.key, task_execution_request=self.task_execution_request)
 
 
 class QueuedLocalWorker(LocalWorkerBase):
@@ -130,12 +132,12 @@ class QueuedLocalWorker(LocalWorkerBase):
 
     def run(self) -> None:
         while True:
-            key, command = self.task_queue.get()
+            key, task_execution_request = self.task_queue.get()
             try:
-                if key is None or command is None:
+                if key is None or task_execution_request is None:
                     # Received poison pill, no more tasks to run
                     break
-                self.execute_work(key=key, command=command)
+                self.execute_work(key=key, task_execution_request=task_execution_request)
             finally:
                 self.task_queue.task_done()
 
@@ -161,7 +163,7 @@ class LocalExecutor(BaseExecutor):
     class UnlimitedParallelism:
         """
         Implements LocalExecutor with unlimited parallelism, starting one process
-        per each command to execute.
+        per each task execution request to execute.
 
         :param executor: the executor instance to implement.
         """
@@ -176,7 +178,7 @@ class LocalExecutor(BaseExecutor):
         # noinspection PyUnusedLocal
         def execute_async(self,
                           key: TaskInstanceKeyType,
-                          command: CommandType,
+                          task_execution_request: TaskExecutionRequest,
                           queue: Optional[str] = None,
                           executor_config: Optional[Any] = None) -> None:  \
                 # pylint: disable=unused-argument # pragma: no cover
@@ -184,13 +186,15 @@ class LocalExecutor(BaseExecutor):
             Executes task asynchronously.
 
             :param key: the key to identify the task instance
-            :param command: the command to execute
+            :param task_execution_request: the task execution request to execute
             :param queue: Name of the queue
             :param executor_config: configuration for the executor
             """
             if not self.executor.result_queue:
                 raise AirflowException(NOT_STARTED_MESSAGE)
-            local_worker = LocalWorker(self.executor.result_queue, key=key, command=command)
+            local_worker = LocalWorker(
+                self.executor.result_queue, key=key, task_execution_request=task_execution_request
+            )
             self.executor.workers_used += 1
             self.executor.workers_active += 1
             local_worker.start()
@@ -246,7 +250,7 @@ class LocalExecutor(BaseExecutor):
         # noinspection PyUnusedLocal
         def execute_async(self,
                           key: TaskInstanceKeyType,
-                          command: CommandType,
+                          task_execution_request: TaskExecutionRequest,
                           queue: Optional[str] = None,
                           executor_config: Optional[Any] = None) -> None: \
                 # pylint: disable=unused-argument # pragma: no cover
@@ -254,13 +258,13 @@ class LocalExecutor(BaseExecutor):
             Executes task asynchronously.
 
             :param key: the key to identify the task instance
-            :param command: the command to execute
+            :param task_execution_request: the task execution request to execute
             :param queue: name of the queue
             :param executor_config: configuration for the executor
-           """
+            """
             if not self.queue:
                 raise AirflowException(NOT_STARTED_MESSAGE)
-            self.queue.put((key, command))
+            self.queue.put((key, task_execution_request))
 
         def sync(self):
             """
@@ -297,14 +301,20 @@ class LocalExecutor(BaseExecutor):
 
         self.impl.start()
 
-    def execute_async(self, key: TaskInstanceKeyType,
-                      command: CommandType,
+    def execute_async(self,
+                      key: TaskInstanceKeyType,
+                      task_execution_request: TaskExecutionRequest,
                       queue: Optional[str] = None,
                       executor_config: Optional[Any] = None) -> None:
         """Execute asynchronously."""
         if not self.impl:
             raise AirflowException(NOT_STARTED_MESSAGE)
-        self.impl.execute_async(key=key, command=command, queue=queue, executor_config=executor_config)
+        self.impl.execute_async(
+            key=key,
+            task_execution_request=task_execution_request,
+            queue=queue,
+            executor_config=executor_config
+        )
 
     def sync(self) -> None:
         """

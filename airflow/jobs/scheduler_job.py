@@ -1304,36 +1304,16 @@ class SchedulerJob(BaseJob):
         :param simple_dag_bag: Should contains all of the task_instances' dags
         :type simple_dag_bag: airflow.utils.dag_processing.SimpleDagBag
         """
-        TI = models.TaskInstance
         # actually enqueue them
         for simple_task_instance in simple_task_instances:
-            simple_dag = simple_dag_bag.get_dag(simple_task_instance.dag_id)
-            command = TI.generate_command(
-                simple_task_instance.dag_id,
-                simple_task_instance.task_id,
-                simple_task_instance.execution_date,
-                local=True,
-                mark_success=False,
-                ignore_all_deps=False,
-                ignore_depends_on_past=False,
-                ignore_task_deps=False,
-                ignore_ti_state=False,
-                pool=simple_task_instance.pool,
-                file_path=simple_dag.full_filepath,
-                pickle_id=simple_dag.pickle_id)
-
             priority = simple_task_instance.priority_weight
             queue = simple_task_instance.queue
             self.log.info(
                 "Sending %s to executor with priority %s and queue %s",
                 simple_task_instance.key, priority, queue
             )
-
-            self.executor.queue_command(
-                simple_task_instance,
-                command,
-                priority=priority,
-                queue=queue)
+            simple_dag = simple_dag_bag.get_dag(simple_task_instance.dag_id)
+            self.executor.queue_simple_task_instance(simple_task_instance, simple_dag)
 
     @provide_session
     def _execute_task_instances(self,

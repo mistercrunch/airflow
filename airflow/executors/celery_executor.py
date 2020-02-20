@@ -23,7 +23,7 @@ import subprocess
 import time
 import traceback
 from multiprocessing import Pool, cpu_count
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from celery import Celery, Task, states as celery_states
 from celery.result import AsyncResult
@@ -31,7 +31,8 @@ from celery.result import AsyncResult
 from airflow.config_templates.default_celery import DEFAULT_CELERY_CONFIG
 from airflow.configuration import conf
 from airflow.exceptions import AirflowException
-from airflow.executors.base_executor import BaseExecutor, CommandType
+from airflow.executors.base_executor import BaseExecutor
+from airflow.models.queue_task_run import TaskExecutionRequest
 from airflow.models.taskinstance import SimpleTaskInstance, TaskInstanceKeyType, TaskInstanceStateType
 from airflow.utils.module_loading import import_string
 from airflow.utils.timeout import timeout
@@ -63,15 +64,17 @@ app = Celery(
 
 
 @app.task
-def execute_command(command_to_exec: CommandType) -> None:
-    """Executes command."""
+def execute_task_execution_request(task_execution_request_kwargs: Dict) -> None:
+    """Executes Task Execution Request."""
+    task_execution_request = TaskExecutionRequest(**task_execution_request_kwargs)
+    command_to_exec = task_execution_request.as_command()
     log.info("Executing command in Celery: %s", command_to_exec)
     env = os.environ.copy()
     try:
         subprocess.check_call(command_to_exec, stderr=subprocess.STDOUT,
                               close_fds=True, env=env)
     except subprocess.CalledProcessError as e:
-        log.exception('execute_command encountered a CalledProcessError')
+        log.exception('execute_task_execution_request encountered a CalledProcessError')
         log.error(e.output)
         raise AirflowException('Celery command failed')
 
@@ -116,22 +119,24 @@ def fetch_celery_task_state(celery_task: Tuple[TaskInstanceKeyType, AsyncResult]
 
 
 # Task instance that is sent over Celery queues
-# TaskInstanceKeyType, SimpleTaskInstance, Command, queue_name, CallableTask
-TaskInstanceInCelery = Tuple[TaskInstanceKeyType, SimpleTaskInstance, CommandType, Optional[str], Task]
+# TaskInstanceKeyType, SimpleTaskInstance, TaskExecutionRequest, queue_name, CallableTask
+TaskInstanceInCelery = Tuple[
+    TaskInstanceKeyType, SimpleTaskInstance, TaskExecutionRequest, Optional[str], Task
+]
 
 
 def send_task_to_executor(task_tuple: TaskInstanceInCelery) \
-        -> Tuple[TaskInstanceKeyType, CommandType, Union[AsyncResult, ExceptionWithTraceback]]:
+        -> Tuple[TaskInstanceKeyType, TaskExecutionRequest, Union[AsyncResult, ExceptionWithTraceback]]:
     """Sends task to executor."""
-    key, _, command, queue, task_to_run = task_tuple
+    key, _, task_execution_request, queue, task_to_run = task_tuple
     try:
         with timeout(seconds=OPERATION_TIMEOUT):
-            result = task_to_run.apply_async(args=[command], queue=queue)
+            result = task_to_run.apply_async(args=[task_execution_request.__dict__], queue=queue)
     except Exception as e:  # pylint: disable=broad-except
         exception_traceback = "Celery Task ID: {}\n{}".format(key, traceback.format_exc())
         result = ExceptionWithTraceback(e, exception_traceback)
 
-    return key, command, result
+    return key, task_execution_request, result
 
 
 class CeleryExecutor(BaseExecutor):
@@ -196,8 +201,10 @@ class CeleryExecutor(BaseExecutor):
         task_tuples_to_send: List[TaskInstanceInCelery] = []
 
         for _ in range(min((open_slots, len(self.queued_tasks)))):
-            key, (command, _, queue, simple_ti) = sorted_queue.pop(0)
-            task_tuples_to_send.append((key, simple_ti, command, queue, execute_command))
+            key, (task_execution_request, _, queue, simple_ti) = sorted_queue.pop(0)
+            task_tuples_to_send.append(
+                (key, simple_ti, task_execution_request, queue, execute_task_execution_request)
+            )
 
         cached_celery_backend = None
         if task_tuples_to_send:
@@ -223,7 +230,7 @@ class CeleryExecutor(BaseExecutor):
             send_pool.join()
             self.log.debug('Sent all tasks.')
 
-            for key, command, result in key_and_async_results:
+            for key, task_execution_request, result in key_and_async_results:
                 if isinstance(result, ExceptionWithTraceback):
                     self.log.error(  # pylint: disable=logging-not-lazy
                         CELERY_SEND_ERR_MSG_HEADER + ":%s\n%s\n", result.exception, result.traceback
@@ -309,7 +316,7 @@ class CeleryExecutor(BaseExecutor):
 
     def execute_async(self,
                       key: TaskInstanceKeyType,
-                      command: CommandType,
+                      task_execution_request: TaskExecutionRequest,
                       queue: Optional[str] = None,
                       executor_config: Optional[Any] = None):
         """Do not allow async execution for Celery executor."""

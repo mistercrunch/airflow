@@ -22,25 +22,23 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from airflow import LoggingMixin, conf
 from airflow.models import TaskInstance
+from airflow.models.queue_task_run import TaskExecutionRequest
 from airflow.models.taskinstance import SimpleTaskInstance, TaskInstanceKeyType
 from airflow.stats import Stats
+from airflow.utils.dag_processing import SimpleDag
 from airflow.utils.state import State
 
 PARALLELISM: int = conf.getint('core', 'PARALLELISM')
 
 NOT_STARTED_MESSAGE = "The executor should be started first!"
 
-# Command to execute - list of strings
-# the first element is always "airflow".
-# It should be result of TaskInstance.generate_command method.q
-CommandType = List[str]
-
-
 # Task that is queued. It contains all the information that is
 # needed to run the task.
 #
-# Tuple of: command, priority, queue name, SimpleTaskInstance
-QueuedTaskInstanceType = Tuple[CommandType, int, Optional[str], Union[SimpleTaskInstance, TaskInstance]]
+# Tuple of: task_execution_request, priority, queue name, SimpleTaskInstance
+QueuedTaskInstanceType = Tuple[
+    TaskExecutionRequest, int, Optional[str], Union[SimpleTaskInstance, TaskInstance]
+]
 
 
 class BaseExecutor(LoggingMixin):
@@ -64,15 +62,19 @@ class BaseExecutor(LoggingMixin):
         Executors may need to get things started.
         """
 
-    def queue_command(self,
-                      simple_task_instance: SimpleTaskInstance,
-                      command: CommandType,
-                      priority: int = 1,
-                      queue: Optional[str] = None):
-        """Queues command to task"""
+    def _queue_task_execution_request(
+        self,
+        simple_task_instance: SimpleTaskInstance,
+        task_execution_request: TaskExecutionRequest,
+        priority: int = 1,
+        queue: Optional[str] = None
+    ):
+        """Queues task exeuction request run of local task job to task"""
         if simple_task_instance.key not in self.queued_tasks and simple_task_instance.key not in self.running:
-            self.log.info("Adding to queue: %s", command)
-            self.queued_tasks[simple_task_instance.key] = (command, priority, queue, simple_task_instance)
+            self.log.info("Adding to queue: %s", task_execution_request)
+            self.queued_tasks[simple_task_instance.key] = (
+                task_execution_request, priority, queue, simple_task_instance
+            )
         else:
             self.log.info("could not queue task %s", simple_task_instance.key)
 
@@ -94,21 +96,45 @@ class BaseExecutor(LoggingMixin):
         # cfg_path is needed to propagate the config values if using impersonation
         # (run_as_user), given that there are different code paths running tasks.
         # For a long term solution we need to address AIRFLOW-1986
-        command_list_to_run = task_instance.command_as_list(
-            local=True,
+        task_execution_request = TaskExecutionRequest(
+            dag_id=task_instance.dag_id,
+            task_id=task_instance.task_id,
+            execution_date=task_instance.execution_date,
             mark_success=mark_success,
-            ignore_all_deps=ignore_all_deps,
+            ignore_all_dependencies=ignore_all_deps,
             ignore_depends_on_past=ignore_depends_on_past,
-            ignore_task_deps=ignore_task_deps,
-            ignore_ti_state=ignore_ti_state,
+            ignore_dependencies=ignore_task_deps,
+            force=ignore_ti_state,
             pool=pool,
             pickle_id=pickle_id,
-            cfg_path=cfg_path)
-        self.queue_command(
+            cfg_path=cfg_path,
+        )
+        self._queue_task_execution_request(
             SimpleTaskInstance(task_instance),
-            command_list_to_run,
+            task_execution_request,
             priority=task_instance.task.priority_weight_total,
             queue=task_instance.task.queue)
+
+    def queue_simple_task_instance(self, simple_task_instance: SimpleTaskInstance, simple_dag: SimpleDag):
+        """Queues simple task instance."""
+        priority = simple_task_instance.priority_weight
+        queue = simple_task_instance.queue
+
+        task_execution_request = TaskExecutionRequest(
+            dag_id=simple_task_instance.dag_id,
+            task_id=simple_task_instance.task_id,
+            execution_date=simple_task_instance.execution_date,
+            pool=simple_task_instance.pool,
+            subdir=simple_dag.full_filepath,
+            pickle_id=simple_dag.pickle_id
+        )
+
+        self._queue_task_execution_request(
+            simple_task_instance,
+            task_execution_request,
+            priority=priority,
+            queue=queue
+        )
 
     def has_task(self, task_instance: TaskInstance) -> bool:
         """
@@ -171,11 +197,11 @@ class BaseExecutor(LoggingMixin):
         sorted_queue = self.order_queued_tasks_by_priority()
 
         for _ in range(min((open_slots, len(self.queued_tasks)))):
-            key, (command, _, _, simple_ti) = sorted_queue.pop(0)
+            key, (task_execution_request, _, _, simple_ti) = sorted_queue.pop(0)
             self.queued_tasks.pop(key)
             self.running.add(key)
             self.execute_async(key=key,
-                               command=command,
+                               task_execution_request=task_execution_request,
                                queue=None,
                                executor_config=simple_ti.executor_config)
 
@@ -232,14 +258,14 @@ class BaseExecutor(LoggingMixin):
 
     def execute_async(self,
                       key: TaskInstanceKeyType,
-                      command: CommandType,
+                      task_execution_request: TaskExecutionRequest,
                       queue: Optional[str] = None,
                       executor_config: Optional[Any] = None) -> None:  # pragma: no cover
         """
-        This method will execute the command asynchronously.
+        This method will execute the task execution request run asynchronously.
 
         :param key: Unique key for the task instance
-        :param command: Command to run
+        :param task_execution_request: Task execution request that contains information about task
         :param queue: name of the queue
         :param executor_config: Configuration passed to the executor.
         """
