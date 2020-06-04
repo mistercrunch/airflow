@@ -162,7 +162,17 @@ class AirflowConfigParser(ConfigParser):
         'core': {
             'task_runner': (re.compile(r'\ABashTaskRunner\Z'), r'StandardTaskRunner', '2.0'),
             'hostname_callable': (re.compile(r':'), r'.', '2.0'),
+            'logging_config_class': (
+                re.compile(r'\Aairflow.config_templates.airflow_local_settings.DEFAULT_LOGGING_CONFIG\Z'),
+                'airflow.logging_config.DEFAULT_LOGGING_CONFIG',
+                '2.0'),
         },
+        'logging': {
+            'logging_config_class': (
+                re.compile(r'\Aairflow.config_templates.airflow_local_settings.DEFAULT_LOGGING_CONFIG\Z'),
+                'airflow.logging_config.DEFAULT_LOGGING_CONFIG',
+                '2.0'),
+        }
     }
 
     # This method transforms option names on every read, get, or set operation.
@@ -224,7 +234,7 @@ class AirflowConfigParser(ConfigParser):
                     ". Possible values are " + ", ".join(start_method_options))
 
     def _using_old_value(self, old, current_value):
-        return old.search(current_value) is not None
+        return current_value is not None and old.search(current_value) is not None
 
     def _update_env_var(self, section, name, new_value):
         # Make sure the env var option is removed, otherwise it

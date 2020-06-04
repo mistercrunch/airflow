@@ -19,7 +19,7 @@
 import logging
 import unittest
 
-from airflow.config_templates.airflow_local_settings import DEFAULT_LOGGING_CONFIG
+from airflow.logging_config import DEFAULT_LOGGING_CONFIG
 from airflow.models import DAG, TaskInstance
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.utils.log.logging_mixin import set_context

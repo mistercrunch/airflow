@@ -458,6 +458,15 @@ The following configurations have been moved from `[core]` to the new `[logging]
 * `dag_processor_manager_log_location`
 * `task_log_reader`
 
+### Default logging config has moved
+
+The default logging config has moved from
+`airflow.config_templates.airflow_local_settings.DEFAULT_LOGGING_CONFIG` to
+`airflow.logging_config.DEFAULT_LOGGING_CONFIG`
+
+Most users will not need to take any action as a result of this change. (If you have a custom logging config
+which imports the base one you will receive a deprecation warning.)
+
 ### Simplification of CLI commands
 
 #### Grouped to improve UX of CLI
