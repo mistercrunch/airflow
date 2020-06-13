@@ -237,6 +237,7 @@ if REMOTE_LOGGING:
         ELASTICSEARCH_WRITE_STDOUT: bool = conf.getboolean('elasticsearch', 'WRITE_STDOUT')
         ELASTICSEARCH_JSON_FORMAT: bool = conf.getboolean('elasticsearch', 'JSON_FORMAT')
         ELASTICSEARCH_JSON_FIELDS: str = conf.get('elasticsearch', 'JSON_FIELDS')
+        ELASTICSEARCH_INDEX: str = conf.get('elasticsearch', 'INDEX')
 
         ELASTIC_REMOTE_HANDLERS: Dict[str, Dict[str, Union[str, bool]]] = {
             'task': {
@@ -249,7 +250,8 @@ if REMOTE_LOGGING:
                 'host': ELASTICSEARCH_HOST,
                 'write_stdout': ELASTICSEARCH_WRITE_STDOUT,
                 'json_format': ELASTICSEARCH_JSON_FORMAT,
-                'json_fields': ELASTICSEARCH_JSON_FIELDS
+                'json_fields': ELASTICSEARCH_JSON_FIELDS,
+                'index': ELASTICSEARCH_INDEX
             },
         }
 

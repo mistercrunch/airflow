@@ -52,9 +52,12 @@ class ElasticsearchTaskHandler(FileTaskHandler, LoggingMixin):
     PAGE = 0
     MAX_LINE_PER_PAGE = 1000
 
+    # 16 is reasonable in this case
+    # pylint: disable-msg=too-many-arguments
     def __init__(self, base_log_folder, filename_template,
                  log_id_template, end_of_log_mark,
                  write_stdout, json_format, json_fields,
+                 index='*',
                  host='localhost:9200',
                  es_kwargs=conf.getsection("elasticsearch_configs")):
         """
@@ -69,7 +72,7 @@ class ElasticsearchTaskHandler(FileTaskHandler, LoggingMixin):
 
         self.log_id_template, self.log_id_jinja_template = \
             parse_template_string(log_id_template)
-
+        self.index = index
         self.client = elasticsearch.Elasticsearch([host], **es_kwargs)
 
         self.mark_end_on_close = True
@@ -170,9 +173,8 @@ class ElasticsearchTaskHandler(FileTaskHandler, LoggingMixin):
         :param metadata: log metadata, used for steaming log download.
         :type metadata: dict
         """
-
         # Offset is the unique key for sorting logs given log_id.
-        search = Search(using=self.client) \
+        search = Search(using=self.client, index=self.index) \
             .query('match_phrase', log_id=log_id) \
             .sort('offset')
 
@@ -208,7 +210,7 @@ class ElasticsearchTaskHandler(FileTaskHandler, LoggingMixin):
 
         if self.json_format:
             self.formatter = JSONFormatter(
-                self.formatter._fmt,  # pylint: disable=protected-access
+                self.formatter._fmt if self.formatter else None,  # pylint: disable=protected-access
                 json_fields=self.json_fields,
                 extras={
                     'dag_id': str(ti.dag_id),
@@ -254,7 +256,14 @@ class ElasticsearchTaskHandler(FileTaskHandler, LoggingMixin):
 
         # Mark the end of file using end of log mark,
         # so we know where to stop while auto-tailing.
-        self.handler.stream.write(self.end_of_log_mark)
+        #
+        # end-of-log mark has to be in its separate line in the console, so
+        # add an obnoxious print() for reliably separate the mark into a
+        # separate line so that elasticsearch can search for this log mark
+        # record
+        if self.write_stdout:
+            print()
+        self.handler.emit(logging.makeLogRecord({'msg': self.end_of_log_mark}))
 
         if self.write_stdout:
             self.handler.close()
