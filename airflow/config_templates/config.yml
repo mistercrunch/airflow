@@ -1522,6 +1522,22 @@
       type: string
       example: ~
       default: "30"
+    - name: dag_cleanup_interval
+      description: |
+        How often unseen Dags should be marked inactive and their serializations deleted.
+        Setting to 0 will disable DAG cleanup. Defaults to 5 minutes
+      version_added: ~
+      type: string
+      example: ~
+      default: "300"
+    - name: removed_tasks_lead_to_dagrun_running
+      description: |
+        Do we keep DagRun "running" when it has a task in the "removed" state? (Tasks are marked as
+        removed when they exist at DAG run creation time but are later deleted from the file)
+      version_added: ~
+      type: string
+      example: ~
+      default: "False"
     - name: scheduler_health_check_threshold
       description: |
         If the last scheduler heartbeat happened more than scheduler_health_check_threshold
