@@ -271,12 +271,9 @@ class DockerOperator(BaseOperator):
             # duplicated conditional logic because of expensive operation
             ret = None
             if self.do_xcom_push:
-                if self.xcom_all:
-                    ret = self.cli.logs(container=self.container['Id'])
-                    if hasattr(ret, 'decode'):
-                        ret = ret.decode('utf-8')
-                else:
-                    ret = line.split('\n')[-1]
+                ret = self.cli.logs(container=self.container['Id'], tail=('all' if self.xcom_all else 1))                    
+                if hasattr(ret, 'decode'):
+                    ret = ret.decode('utf-8')
 
             if self.auto_remove:
                 self.cli.remove_container(self.container['Id'])
