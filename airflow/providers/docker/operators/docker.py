@@ -17,10 +17,14 @@
 # under the License.
 """Implements Docker operator"""
 import ast
+import io
+import pickle
+import tarfile
 from tempfile import TemporaryDirectory
 from typing import Dict, Iterable, List, Optional, Union
 
 from docker import APIClient, tls
+from docker.errors import APIError
 
 from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
@@ -213,6 +217,7 @@ class DockerOperator(BaseOperator):
 
         self.cli = None
         self.container = None
+        self.retrieve_output = True
 
     def get_hook(self) -> DockerHook:
         """
@@ -267,6 +272,7 @@ class DockerOperator(BaseOperator):
 
                 line = ''
                 res_lines = []
+                return_value = None
                 for line in lines:
                     line = line.strip()
                     if hasattr(line, 'decode'):
@@ -274,6 +280,11 @@ class DockerOperator(BaseOperator):
                         line = line.decode('utf-8')
                     res_lines.append(line)
                     self.log.info(line)
+                    if self.retrieve_output and not return_value:
+                        return_value = self._attempt_to_retrieve_result()
+                    if return_value:
+                        # We have our return value so we can attempt to gracefully kill the image
+                        self.cli.kill(self.container['Id'], "SIGINT")
 
                 result = self.cli.wait(self.container['Id'])
                 if result['StatusCode'] != 0:
@@ -281,16 +292,39 @@ class DockerOperator(BaseOperator):
                     raise AirflowException('docker container failed: ' + repr(result) + f"lines {res_lines}")
 
                 ret = None
-                if self.do_xcom_push:
-                    ret = (
-                        self.cli.logs(container=self.container['Id'])
-                        if self.xcom_all
-                        else line.encode('utf-8')
-                    )
+                if self.retrieve_output:
+                    ret = return_value
+                elif self.do_xcom_push:
+                    ret = self._get_return_value_from_logs(line)
                 return ret
             finally:
                 if self.auto_remove:
                     self.cli.remove_container(self.container['Id'])
+
+    def _attempt_to_retrieve_result(self):
+        """
+        Attempts to pull the result of the function from the expected file using docker's
+        get_archive function.
+        If the file is not yet ready, returns None
+        :return:
+        """
+
+        def copy_from_docker(container_id, src):
+            archived_result, stat = self.cli.get_archive(container_id, src)
+            # no need to port to a file since we intend to deserialize
+            file_standin = io.BytesIO(b"".join(archived_result))
+            tar = tarfile.open(fileobj=file_standin)
+            file = tar.extractfile(stat['name'])
+            return pickle.loads(file.read())
+
+        try:
+            return_value = copy_from_docker(self.container['Id'], '/tmp/script.out')
+            return return_value
+        except APIError:
+            return None
+
+    def _get_return_value_from_logs(self, line):
+        return self.cli.logs(container=self.container['Id']) if self.xcom_all else line.encode('utf-8')
 
     def execute(self, context) -> Optional[str]:
         self.cli = self._get_cli()
