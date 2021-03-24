@@ -70,6 +70,19 @@ https://developers.google.com/style/inclusive-documentation
 
 -->
 
+### Configuration View only returns running configuration
+
+Previously, the Configuration View showed two things:
+
+1. airflow.cfg content
+2. Table with the running configuration, displaying the active values and their source (e.g. env vars)
+
+Since values in airflow.cfg can be overridden by environment variables, this led to confusion because airflow.cfg did
+not represent the currently active configuration. Therefore, the airflow.cfg content was removed from the Configuration
+View and only the table with running configuration is displayed.
+
+In the process, the `raw` argument (`http://airflow/configuration?raw=true`) was removed. It is substituted by Config
+endpoint of the REST API.
 
 ## Airflow 2.0.1
 
