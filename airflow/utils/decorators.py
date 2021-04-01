@@ -23,7 +23,9 @@ from copy import copy
 from functools import wraps
 from typing import Any, Callable, Dict, TypeVar, cast
 
-from airflow.exceptions import AirflowException
+import pendulum
+
+from airflow.exceptions import AirflowException, AirflowSkipException
 
 signature = inspect.signature
 
@@ -95,6 +97,44 @@ def apply_defaults(func: T) -> T:
         return result
 
     return cast(T, wrapper)
+
+
+def latest_only(f):
+    """
+    Decorator for adding skip-if-not-latest behavior to any operator.
+
+    Can be disabled if the class has an attribute ``latest_only`` with value ``False``
+    """
+
+    def skip_if_not_latest(context):
+        if not context:  # assume run interactively
+            return
+        dag_run = context.get('dag_run')
+        if dag_run and dag_run.external_trigger:
+            print("Externally triggered DAG_Run: allowing execution to proceed.")
+            return
+
+        dag = context['dag']
+        now = pendulum.now('UTC')
+        left_window = dag.following_schedule(context['execution_date'])
+        right_window = dag.following_schedule(left_window)
+        print(
+            f"Checking latest only:\n"
+            f"\tleft_window: {left_window}\n"
+            f"\tright_window: {right_window}\n"
+            f"\tnow: {now}\n",
+        )
+
+        if not left_window < now <= right_window:
+            raise AirflowSkipException('Not latest execution; skipping...')
+
+    @wraps(f)
+    def wrap(self, context):
+        if not (hasattr(self, 'latest_only') and self.latest_only is False):
+            skip_if_not_latest(context)
+        return f(self, context)
+
+    return wrap
 
 
 if 'BUILDING_AIRFLOW_DOCS' in os.environ:

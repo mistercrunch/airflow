@@ -1317,6 +1317,20 @@ a cascaded skip from ``task1``. ``task4`` is downstream of ``task1`` and
 .. image:: img/latest_only_with_trigger.png
 
 
+Another way to introduce latest only skipping behavior is to use the
+:func:`~.airflow.utils.decorators.latest_only` decorator.  You can apply this
+to the ``execute`` method of a custom operator, and it will only run if it
+is the latest execution.
+
+The benefit of doing it this way is you don't need an extra task to accomplish
+the skipping behavior.
+
+.. exampleinclude:: /../../airflow/example_dags/example_latest_only_decorator.py
+    :language: python
+    :start-after: [START example]
+    :end-before: [END example]
+
+
 Zombies & Undeads
 =================
 
