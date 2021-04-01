@@ -1325,6 +1325,10 @@ is the latest execution.
 The benefit of doing it this way is you don't need an extra task to accomplish
 the skipping behavior.
 
+You can also use this operator to make an operator that is latest-only on a
+configurable basis; it will check for an attribute ``latest_only`` and if it
+finds a value of ``False`` it will not skip.
+
 .. exampleinclude:: /../../airflow/example_dags/example_latest_only_decorator.py
     :language: python
     :start-after: [START example]

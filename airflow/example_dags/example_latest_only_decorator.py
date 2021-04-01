@@ -27,9 +27,17 @@ from airflow.utils.decorators import latest_only
 
 # [START example]
 class MyLatestOnlyOperator(BaseOperator):  # pylint: disable=missing-class-docstring
+    def __init__(self, latest_only=True, **kwargs):  # pylint: disable=redefined-outer-name
+        self.latest_only = latest_only
+        if self.latest_only:
+            self.message = 'I will skip all but the latest execution'
+        else:
+            self.message = 'I will never skip'
+        super().__init__(**kwargs)
+
     @latest_only
     def execute(self, context):
-        print('I will skip all but the latest execution')
+        print(self.message)
 
 
 class MyBashOnlyOperator(BashOperator):  # pylint: disable=missing-class-docstring
@@ -44,6 +52,7 @@ with DAG(
     schedule_interval='0 0 * * *',
     start_date=days_ago(5),
 ) as dag:
-    MyLatestOnlyOperator(task_id='latest_only_decorator_task')
-    MyBashOnlyOperator(task_id='latest_only_bash_task', bash_command='echo "hello world"')
+    will_skip = MyLatestOnlyOperator(task_id='latest_only_decorator_will_skip')
+    wont_skip = MyLatestOnlyOperator(task_id='latest_only_decorator_wont_skip', latest_only=False)
+    subclass_example = MyBashOnlyOperator(task_id='latest_only_bash_task', bash_command='echo "hello world"')
 # [END example]
