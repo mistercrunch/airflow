@@ -64,7 +64,14 @@ from airflow.utils.types import DagRunType
 from airflow.www import app as application
 from airflow.www.extensions import init_views
 from airflow.www.extensions.init_appbuilder_links import init_appbuilder_links
-from airflow.www.views import ConnectionModelView, get_safe_url, truncate_task_duration
+from airflow.www.views import (
+    ConnectionModelView,
+    build_dag_sorting_query,
+    dag_query_for_key,
+    get_safe_url,
+    query_ordering_transform_for_key,
+    truncate_task_duration,
+)
 from tests.test_utils import fab_utils
 from tests.test_utils.asserts import assert_queries_count
 from tests.test_utils.config import conf_vars
@@ -3387,3 +3394,61 @@ class TestHelperFunctions(TestBase):
     )
     def test_truncate_task_duration(self, test_duration, expected_duration):
         assert truncate_task_duration(test_duration) == expected_duration
+
+
+class TestDagsView(TestBase):
+    def test_dag_sorting_query(self):
+        from airflow.models.dag import DagModel
+
+        dag_id_query = dag_query_for_key(sorting_key='dag_id')
+        dag_id_query_casetest = dag_query_for_key(sorting_key='dAg_Id')
+
+        self.assertEqual(dag_id_query, DagModel.dag_id)
+        self.assertEqual(dag_id_query_casetest, dag_id_query)
+
+        owner_query = dag_query_for_key(sorting_key='owner')
+        owner_query_casetest = dag_query_for_key(sorting_key='oWnEr')
+
+        self.assertEqual(owner_query, DagModel.owners)
+        self.assertNotEqual(owner_query, dag_id_query)
+        self.assertEqual(owner_query_casetest, owner_query)
+
+        schedule_query = dag_query_for_key(sorting_key='next_dagrun')
+
+        self.assertEqual(schedule_query, DagModel.next_dagrun)
+        self.assertNotEqual(schedule_query, dag_id_query)
+        self.assertNotEqual(schedule_query, owner_query)
+
+        asc_transform = query_ordering_transform_for_key(sorting_order='asc')
+        asc_transform_casetest = query_ordering_transform_for_key(sorting_order='aSC')
+
+        self.assertIsNotNone(asc_transform)
+        self.assertEqual(asc_transform, asc_transform_casetest)
+
+        desc_transform = query_ordering_transform_for_key(sorting_order='desc')
+        desc_transform_casetest = query_ordering_transform_for_key(sorting_order='DeSC')
+
+        self.assertIsNotNone(desc_transform)
+        self.assertEqual(desc_transform, desc_transform_casetest)
+
+        self.assertNotEqual(asc_transform, desc_transform)
+        self.assertNotEqual(asc_transform_casetest, desc_transform_casetest)
+
+        asc_dag_id_query = build_dag_sorting_query(sorting_key='dag_id', sorting_order='asc')
+        self.assertIsNotNone(asc_dag_id_query)
+
+        desc_dag_id_query = build_dag_sorting_query(sorting_key='dag_id', sorting_order='desc')
+        self.assertIsNotNone(desc_dag_id_query)
+
+        asc_schedule_query = build_dag_sorting_query(sorting_key='nEXt_dAgEun', sorting_order='aSc')
+        asc_owner_query = build_dag_sorting_query(sorting_key='oWNer', sorting_order='aSc')
+        desc_owner_query = build_dag_sorting_query(sorting_key='oWNer', sorting_order='deSC')
+
+        self.assertIsNotNone(asc_schedule_query)
+        self.assertIsNotNone(asc_owner_query)
+        self.assertIsNotNone(desc_owner_query)
+
+        self.assertNotEqual(asc_schedule_query, asc_owner_query)
+        self.assertNotEqual(desc_owner_query, asc_owner_query)
+        self.assertNotEqual(asc_schedule_query, asc_dag_id_query)
+        self.assertNotEqual(asc_owner_query, asc_dag_id_query)

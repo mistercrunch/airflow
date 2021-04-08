@@ -20,6 +20,39 @@
 {% extends base_template %}
 {% from 'appbuilder/loading_dots.html' import loading_dots %}
 
+{%- macro verbose_ordering_name(ordering) -%}
+    {{ 'descending' if ordering == 'desc' else ('ascending' if ordering == 'asc' else ordering) }}
+{%- endmacro -%}
+
+{%- macro sorted_th_link(name, attr_name) -%}
+   {% set request_ordering = (request.args.get('orderDir', 'unsorted')) %}
+   {% set curr_ordering = ('unsorted' if request.args.get('orderDir') != attr_name else request_ordering ) %}
+   {% set new_ordering = ('asc' if request.args.get('orderDir') != attr_name or curr_ordering != 'asc' else 'desc' ) %}
+   <a href="{{ url_for('Airflow.index',
+                       status=request.args.get('status', 'all'),
+                       search=request.args.get('search', None),
+                       tags=request.args.get('tags', None),
+                       orderBy=attr_name,
+                       orderDir=new_ordering
+                       ) }}"
+   class="js-tooltip"
+   role="tooltip"
+   title="Sort by {{ verbose_ordering_name(new_ordering) }} {{ attr_name }}."
+   >
+    {{ name }}
+
+    <span class="material-icons" aria-hidden="true" aria-describedby="sorting-tip-{{ name }}">
+      {% if request.args.get('orderDir', 'none') == 'desc' and request.args.get('orderBy') == attr_name %}
+        expand_less
+      {% elif request.args.get('orderDir', 'none') == 'asc' and request.args.get('orderBy') == attr_name %}
+        expand_more
+      {% else %}
+        unfold_more
+      {% endif %}
+    </span>
+  </a>
+{%- endmacro -%}
+
 {% block page_title %}
   {% if search_query %}"{{ search_query }}" - {% endif %}DAGs - {{ appbuilder.app_name }}
 {% endblock %}
@@ -91,12 +124,12 @@
               <th width="12">
                 <span class="material-icons text-muted js-tooltip" title="Use this toggle to pause/unpause a DAG. The scheduler won't schedule new tasks instances for a paused DAG. Tasks already running at pause time won't be affected.">info</span>
               </th>
-              <th>DAG</th>
-              <th>Owner</th>
+              <th>{{ sorted_th_link("DAG", "dag_id") }}</th>
+              <th>{{ sorted_th_link("Owner", "owner") }}</th>
               <th>Runs
                 <span class="material-icons text-muted js-tooltip" aria-hidden="true" title="Status of all previous DAG runs.">info</span>
               </th>
-              <th>Schedule</th>
+              <th>{{ sorted_th_link("Next DAGrun", "next_dagrun") }}</th>
               <th style="width:180px;">Last Run
                 <span class="material-icons text-muted js-tooltip" aria-hidden="true" title="Execution Date/Time of Highest Dag Run.">info</span>
               </th>
