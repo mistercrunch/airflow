@@ -249,7 +249,7 @@ class TestDockerOperator(unittest.TestCase):
         xcom_push_result = xcom_push_operator.execute(None)
         no_xcom_push_result = no_xcom_push_operator.execute(None)
 
-        assert xcom_push_result == b'container log'
+        assert xcom_push_result == 'container log'
         assert no_xcom_push_result is None
 
     def test_extra_hosts(self):

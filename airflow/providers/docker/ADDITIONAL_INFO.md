@@ -23,3 +23,7 @@
 
   * `Remove failed DockerOperator tasks with auto_remove=True (#13532) (#13993)`
   * `Fix error on DockerSwarmOperator with auto_remove True (#13532) (#13852)`
+### Changes to XCom return values
+
+* the return value of XCom is of type `str` (as opposed to `bytes`)
+* if `xcom_all` is set to `False` only the last line of the log (separated by `\n`) will be included in the XCom value
