@@ -31,7 +31,7 @@ from airflow.utils.python_virtualenv import remove_task_decorator, write_python_
 
 def _generate_decode_command(env_var, file):
     return (
-        f'python -c "import os; import base64;'
+        f'python -c "import os; import base64; import zlib;'
         f' x = base64.b64decode(os.environ[\\"{env_var}\\"]);'
         f' f = open(\\"{file}\\", \\"wb\\"); f.write(x);'
         f' f.close()"'
