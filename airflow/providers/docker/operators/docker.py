@@ -131,6 +131,12 @@ class DockerOperator(BaseOperator):
     :type privileged: bool
     :param cap_add: Include container capabilities
     :type cap_add: list[str]
+    :param retrieve_output: Should this docker image consistently attempt to pull from and output
+        file before manually shutting down the image. Useful for cases where users want a pickle serialized
+        output that is not posted to logs
+    :type retrieve_output: bool
+    :param retrieve_output_path: path for output file that will be retrieved and passed to xcom
+    :type retrieve_output_path: Optional[str]
     """
 
     template_fields = ('command', 'environment', 'container_name')
@@ -176,9 +182,10 @@ class DockerOperator(BaseOperator):
         privileged: bool = False,
         cap_add: Optional[Iterable[str]] = None,
         extra_hosts: Optional[Dict[str, str]] = None,
+        retrieve_output: bool = False,
+        retrieve_output_path: Optional[str] = None,
         **kwargs,
     ) -> None:
-
         super().__init__(**kwargs)
         self.api_version = api_version
         self.auto_remove = auto_remove
@@ -217,7 +224,8 @@ class DockerOperator(BaseOperator):
 
         self.cli = None
         self.container = None
-        self.retrieve_output = True
+        self.retrieve_output = retrieve_output
+        self.retrieve_output_path = retrieve_output_path
 
     def get_hook(self) -> DockerHook:
         """
@@ -318,7 +326,7 @@ class DockerOperator(BaseOperator):
             return pickle.loads(file.read())
 
         try:
-            return_value = copy_from_docker(self.container['Id'], '/tmp/script.out')
+            return_value = copy_from_docker(self.container['Id'], self.retrieve_output_path)
             return return_value
         except APIError:
             return None
