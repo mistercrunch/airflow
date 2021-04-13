@@ -19,6 +19,7 @@ import base64
 import inspect
 import os
 import pickle
+import zlib
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Callable, Dict, Optional, TypeVar
@@ -33,6 +34,7 @@ def _generate_decode_command(env_var, file):
     return (
         f'python -c "import os; import base64; import zlib;'
         f' x = base64.b64decode(os.environ[\\"{env_var}\\"]);'
+        f'x = zlib.decompress(x);'
         f' f = open(\\"{file}\\", \\"wb\\"); f.write(x);'
         f' f.close()"'
     )
@@ -40,7 +42,8 @@ def _generate_decode_command(env_var, file):
 
 def _b64_encode_file(filename):
     data = open(filename, "rb").read()
-    encoded = base64.b64encode(data)
+    compressed = zlib.compress(data)
+    encoded = base64.b64encode(compressed)
     return encoded
 
 
@@ -78,7 +81,9 @@ class _DockerDecoratedOperator(DecoratedOperator, DockerOperator):
         self._output_filename = ""
         command = "dummy command"
         self.pickling_library = pickle
-        super().__init__(command=command, **kwargs)
+        super().__init__(
+            command=command, retrieve_output=True, retrieve_output_path="/tmp/script.out", **kwargs
+        )
 
     def execute(self, context: Dict):
         with TemporaryDirectory(prefix='venv') as tmp_dir:
@@ -111,8 +116,7 @@ class _DockerDecoratedOperator(DecoratedOperator, DockerOperator):
                 f'touch /tmp/string_args &&'
                 f'touch /tmp/script.in &&'
                 f'{_generate_decode_command("PYTHON_INPUT", "/tmp/script.in")} &&'
-                f'python /tmp/script.py /tmp/script.in /tmp/script.out /tmp/string_args &&'
-                f'trap "exit 0" INT; while true; do sleep 1; done; \''
+                f'python /tmp/script.py /tmp/script.in /tmp/script.out /tmp/string_args \''
             )
             return super().execute(context)
 

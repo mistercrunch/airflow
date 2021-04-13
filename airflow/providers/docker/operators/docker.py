@@ -288,17 +288,12 @@ class DockerOperator(BaseOperator):
                         line = line.decode('utf-8')
                     res_lines.append(line)
                     self.log.info(line)
-                    if self.retrieve_output and not return_value:
-                        return_value = self._attempt_to_retrieve_result()
-                    if return_value:
-                        # We have our return value so we can attempt to gracefully kill the image
-                        self.cli.kill(self.container['Id'], "SIGINT")
-
                 result = self.cli.wait(self.container['Id'])
                 if result['StatusCode'] != 0:
                     res_lines = "\n".join(res_lines)
                     raise AirflowException('docker container failed: ' + repr(result) + f"lines {res_lines}")
-
+                if self.retrieve_output and not return_value:
+                    return_value = self._attempt_to_retrieve_result()
                 ret = None
                 if self.retrieve_output:
                     ret = return_value
