@@ -848,7 +848,7 @@ class BaseOperator(Operator, LoggingMixin, TaskMixin, metaclass=BaseOperatorMeta
             return
 
         if dag_run and dag_run.external_trigger:
-            print("Externally triggered DAG_Run: allowing execution to proceed.")
+            self.log.info("Externally triggered DAG_Run: allowing execution to proceed.")
             return
 
         dag = context.get('dag')
@@ -858,7 +858,7 @@ class BaseOperator(Operator, LoggingMixin, TaskMixin, metaclass=BaseOperatorMeta
         now = pendulum.now('UTC')
         left_window = dag.following_schedule(context['execution_date'])
         right_window = dag.following_schedule(left_window)
-        print(
+        self.log.info(  # pylint: disable=logging-fstring-interpolation
             f"Checking latest only:\n"
             f"\tleft_window: {left_window}\n"
             f"\tright_window: {right_window}\n"
