@@ -18,12 +18,10 @@
 
 import unittest
 
-import pendulum
 import pytest
 
-from airflow.exceptions import AirflowException, AirflowSkipException
-from airflow.models.baseoperator import BaseOperator
-from airflow.utils.decorators import apply_defaults, latest_only
+from airflow.exceptions import AirflowException
+from airflow.utils.decorators import apply_defaults
 
 
 # Essentially similar to airflow.models.BaseOperator
@@ -74,50 +72,3 @@ class TestApplyDefault(unittest.TestCase):
         default_args = {'random_params': True}
         with pytest.raises(AirflowException, match='Argument.*test_param.*required'):
             DummyClass(default_args=default_args)  # pylint: disable=no-value-for-parameter
-
-
-class TestLatestOnly:
-    def test_latest_only(self):
-        class MyOp(BaseOperator):
-            @latest_only
-            def execute(self, context):
-                return 'val'
-
-        class MockDag:
-            @staticmethod
-            def following_schedule(execution_date):
-                return execution_date.add(days=1)
-
-        op = MyOp(task_id='hello')
-
-        with pytest.raises(AirflowSkipException):
-            execution_date = pendulum.now().add(days=-1)
-            op.execute({'dag': MockDag(), 'execution_date': execution_date.add(hours=-36)})
-        val = op.execute({'dag': MockDag(), 'execution_date': execution_date.add(hours=-12)})
-        assert val == 'val'
-
-    def test_latest_only_disable(self):
-        """Latest only behavior should be disableable"""
-
-        class MyOp(BaseOperator):
-            def __init__(self, latest_only=False, **kwargs):
-                super().__init__(**kwargs)
-                self.latest_only = latest_only
-
-            @latest_only
-            def execute(self, context):
-                return 'val'
-
-        class MockDag:
-            @staticmethod
-            def following_schedule(execution_date):
-                return execution_date.add(days=1)
-
-        execution_date = pendulum.now().add(days=-1)
-        context = {'dag': MockDag(), 'execution_date': execution_date.add(hours=-36)}
-        with pytest.raises(AirflowSkipException):
-            op = MyOp(task_id='hello', latest_only=True)
-            op.execute(context)
-        op = MyOp(task_id='hello', latest_only=False)
-        val = op.execute(context)
-        assert val == 'val'

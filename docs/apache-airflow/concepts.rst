@@ -1286,17 +1286,39 @@ cascade through ``none_failed_or_skipped``.
 Latest Run Only
 ===============
 
-Standard workflow behavior involves running a series of tasks for a
-particular date/time range. Some workflows, however, perform tasks that
-are independent of run time but need to be run on a schedule, much like a
-standard cron job. In these cases, backfills or running jobs missed during
-a pause just wastes CPU cycles.
+In some cases it is not desirable for your task to run during a backfill or
+in catchup dag runs.  In other words, for some tasks, we only want them to
+run if the task's dag run is the "latest" run.
 
-For situations like this, you can use the ``LatestOnlyOperator`` to skip
-tasks that are not being run during the most recent scheduled run for a
-DAG. The ``LatestOnlyOperator`` skips all direct downstream tasks, if the time
-right now is not between its ``execution_time`` and the next scheduled
-``execution_time`` or the DagRun has been externally triggered.
+.. note::
+
+    To be more precise, a dag run is the "latest run" if the current moment in time
+    is between its ``execution_date`` and its next ``execution_date``, according to
+    its schedule interval.
+
+Airflow provides two ways to skip tasks in this scenario.
+
+Latest only parameter
+---------------------
+
+For this scenario you can set ``latest_only=True`` in your operator. Just prior
+to executing its workflow, it will check whether its dag run is the latest dag
+run, and if not it will skip itself.
+
+.. exampleinclude:: /../../airflow/example_dags/example_latest_only.py
+    :language: python
+    :start-after: [START latest_only_param]
+    :end-before: [END latest_only_param]
+
+Tasks downstream of the skipped task may or may not run depending on the
+:doc:`trigger rule <concepts/trigger_rule>` they are configured to use.
+
+Latest only operator
+--------------------
+
+Airflow also provides a ``LatestOnlyOperator`` which serves a similar function.
+If the dag run is not the latest dag run, ``LatestOnlyOperator`` will not skip
+itself but will set its downstream relatives to skip.
 
 For example, consider the following DAG:
 
@@ -1315,25 +1337,6 @@ a cascaded skip from ``task1``. ``task4`` is downstream of ``task1`` and
 ``all_done``.
 
 .. image:: img/latest_only_with_trigger.png
-
-
-Another way to introduce latest only skipping behavior is to use the
-:func:`~.airflow.utils.decorators.latest_only` decorator.  You can apply this
-to the ``execute`` method of a custom operator, and it will only run if it
-is the latest execution.
-
-The benefit of doing it this way is you don't need an extra task to accomplish
-the skipping behavior.
-
-You can also use this operator to make an operator that is latest-only on a
-configurable basis; it will check for an attribute ``latest_only`` and if it
-finds a value of ``False`` it will not skip.
-
-.. exampleinclude:: /../../airflow/example_dags/example_latest_only_decorator.py
-    :language: python
-    :start-after: [START example]
-    :end-before: [END example]
-
 
 Zombies & Undeads
 =================
