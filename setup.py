@@ -510,6 +510,7 @@ devel = [
     'pygithub',
     'pysftp',
     'pytest~=6.0',
+    'pytest-asyncio',
     'pytest-cov',
     'pytest-instafail',
     'pytest-rerunfailures~=9.1',
