@@ -19,6 +19,8 @@ import sys
 import unittest.mock
 from datetime import timedelta
 
+import pytest
+
 from airflow.decorators import task
 from airflow.models import DAG, DagRun, TaskInstance as TI
 from airflow.utils import timezone
@@ -119,6 +121,7 @@ class TestDockerDecorator(unittest.TestCase):
         ti = dr.get_task_instances()[0]
         assert len(ti.xcom_pull()) == 100
 
+    @pytest.mark.backend("mysql", "postgres")
     def test_basic_docker_operator_with_large_value(self):
         @task.docker(
             image="quay.io/bitnami/python:3.8.8",
