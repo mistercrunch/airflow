@@ -17,7 +17,6 @@
 
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
-from airflow.decorators.docker import _docker_task
 from airflow.decorators.python import python_task
 from airflow.decorators.python_virtualenv import _virtualenv_task
 from airflow.decorators.task_group import task_group  # noqa # pylint: disable=unused-import
@@ -266,6 +265,8 @@ class _TaskDecorator:
         :param cap_add: Include container capabilities
         :type cap_add: list[str]
         """
+        from airflow.providers.docker.decorators.docker import _docker_task
+
         return _docker_task(
             python_callable=python_callable,
             multiple_outputs=multiple_outputs,
