@@ -19,6 +19,7 @@ import base64
 import inspect
 import os
 import pickle
+import shlex
 from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Callable, Dict, Optional, TypeVar
@@ -30,18 +31,17 @@ from airflow.utils.python_virtualenv import remove_task_decorator, write_python_
 
 
 def _generate_decode_command(env_var, file):
-    return (
+    return shlex.quote(
         f'python -c "import os; import base64;'
-        f' x = base64.b64decode(os.environ[\\"{env_var}\\"]);'
-        f' f = open(\\"{file}\\", \\"wb\\"); f.write(x);'
+        f' x = base64.b64decode(os.environ["{env_var}"]);'
+        f' f = open("{file}", "wb"); f.write(x);'
         f' f.close()"'
     )
 
 
 def _b64_encode_file(filename):
-    data = open(filename, "rb").read()
-    encoded = base64.b64encode(data)
-    return encoded
+    with open(filename, "rb") as file_to_encode:
+        return base64.b64encode(file_to_encode.read())
 
 
 class _DockerDecoratedOperator(DecoratedOperator, DockerOperator):
