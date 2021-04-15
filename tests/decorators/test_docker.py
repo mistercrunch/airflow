@@ -19,8 +19,6 @@ import sys
 import unittest.mock
 from datetime import timedelta
 
-import pytest
-
 from airflow.decorators import task
 from airflow.models import DAG, DagRun, TaskInstance as TI
 from airflow.utils import timezone
@@ -120,33 +118,6 @@ class TestDockerDecorator(unittest.TestCase):
         ret.operator.run(start_date=DEFAULT_DATE, end_date=DEFAULT_DATE)  # pylint: disable=no-member
         ti = dr.get_task_instances()[0]
         assert len(ti.xcom_pull()) == 100
-
-    @pytest.mark.backend("mysql", "postgres")
-    def test_basic_docker_operator_with_large_value(self):
-        @task.docker(
-            image="quay.io/bitnami/python:3.8.8",
-            force_pull=True,
-            docker_url="unix://var/run/docker.sock",
-            network_mode="bridge",
-            api_version='auto',
-        )
-        def f():
-            import random
-
-            return [random.random() for i in range(10000000)]
-
-        with self.dag:
-            ret = f()
-
-        dr = self.dag.create_dagrun(
-            run_id=DagRunType.MANUAL.value,
-            start_date=timezone.utcnow(),
-            execution_date=DEFAULT_DATE,
-            state=State.RUNNING,
-        )
-        ret.operator.run(start_date=DEFAULT_DATE, end_date=DEFAULT_DATE)  # pylint: disable=no-member
-        ti = dr.get_task_instances()[0]
-        assert len(ti.xcom_pull()) == 10000000
 
     def test_basic_docker_operator_multiple_output(self):
         @task.docker(
