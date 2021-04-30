@@ -751,8 +751,16 @@ class DAG(LoggingMixin):
         return list(self.task_dict.keys())
 
     @property
+    def task_group_dict(self) -> Dict[str, "TaskGroup"]:
+        return {k: v for k, v in self.task_group.get_task_group_dict().items() if k is not None}
+
+    @property
     def task_group(self) -> "TaskGroup":
         return self._task_group
+
+    @property
+    def task_groups(self) -> List["TaskGroup"]:
+        return list(self.task_group_dict.values())
 
     @property
     def filepath(self) -> str:
@@ -1206,7 +1214,7 @@ class DAG(LoggingMixin):
             tis = tis.filter(TI.task_id.in_(self.task_ids))
 
         if include_parentdag and self.is_subdag and self.parent_dag is not None:
-            p_dag = self.parent_dag.sub_dag(
+            p_dag = self.parent_dag.partial_subset(
                 task_ids_or_regex=r"^{}$".format(self.dag_id.split('.')[1]),
                 include_upstream=False,
                 include_downstream=True,
@@ -1287,7 +1295,7 @@ class DAG(LoggingMixin):
                             external_dag = dag_bag.get_dag(tii.dag_id)
                             if not external_dag:
                                 raise AirflowException(f"Could not find dag {tii.dag_id}")
-                            downstream = external_dag.sub_dag(
+                            downstream = external_dag.partial_subset(
                                 task_ids_or_regex=fr"^{tii.task_id}$",
                                 include_upstream=False,
                                 include_downstream=True,
@@ -1537,8 +1545,11 @@ class DAG(LoggingMixin):
 
         return dag
 
+    def has_task_group(self, group_id: str):
+        return group_id in self.task_group_dict
+
     def has_task(self, task_id: str):
-        return task_id in (t.task_id for t in self.tasks)
+        return task_id in self.task_dict
 
     def get_task(self, task_id: str, include_subdags: bool = False) -> BaseOperator:
         if task_id in self.task_dict:
