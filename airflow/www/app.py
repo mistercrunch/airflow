@@ -129,7 +129,6 @@ def create_app(config=None, testing=False):
         init_error_handlers(flask_app)
         init_api_connexion(flask_app)
         init_api_experimental(flask_app)
-
         sync_appbuilder_roles(flask_app)
 
         init_jinja_globals(flask_app)

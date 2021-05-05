@@ -16,14 +16,16 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-
+import logging
 import warnings
 from typing import Dict, Optional, Sequence, Set, Tuple
 
 from flask import current_app, g
+from flask_appbuilder.const import AUTH_DB, AUTH_LDAP
 from flask_appbuilder.security.sqla import models as sqla_models
 from flask_appbuilder.security.sqla.manager import SecurityManager
 from flask_appbuilder.security.sqla.models import PermissionView, Role, User
+from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 
@@ -56,6 +58,8 @@ EXISTING_ROLES = {
     'Op',
     'Public',
 }
+
+log = logging.getLogger(__name__)
 
 
 class AirflowSecurityManager(SecurityManager, LoggingMixin):  # pylint: disable=too-many-public-methods
@@ -729,6 +733,28 @@ class AirflowSecurityManager(SecurityManager, LoggingMixin):  # pylint: disable=
                 return False
 
         return True
+
+    def login_with_user_pass(self, username, password):
+        """Convenience method for user login through the API"""
+        user = None
+        if self.auth_type == AUTH_DB:
+            user = self.auth_user_db(username, password)
+        elif self.auth_type == AUTH_LDAP:
+            user = self.auth_user_ldap(username, password)
+        return user
+
+    def create_jwt_manager(self, app) -> JWTManager:
+        """Called by FAB for us when it wants a configured JWT manager"""
+        jwt_manager = JWTManager()
+        jwt_manager.init_app(app)
+        jwt_manager.user_loader_callback_loader(self.load_user_jwt)
+        return jwt_manager
+
+    def create_tokens_and_dump(self, user, schema):
+        """Creates access and refresh token, return user data alongside tokens"""
+        access_token = create_access_token(user.id)
+        refresh_token = create_refresh_token(user.id)
+        return schema.dump({'user': user, 'token': access_token, 'refresh_token': refresh_token})
 
 
 class ApplessAirflowSecurityManager(AirflowSecurityManager):

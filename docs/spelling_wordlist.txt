@@ -194,6 +194,7 @@ InspectContentResponse
 InspectTemplate
 Investorise
 JPype
+JWT
 Jakob
 Jarek
 Jdbc
@@ -528,6 +529,7 @@ behaviours
 bigquery
 bigtable
 bitshift
+blocklist
 bolkedebruin
 booktabs
 boolean
@@ -749,6 +751,7 @@ evo
 exasol
 execvp
 exitcode
+exp
 explict
 exportingmultiple
 extensibility
@@ -858,6 +861,7 @@ hyperparameter
 iPython
 iTerm
 iam
+iat
 idempotence
 idempotency
 ie
@@ -920,6 +924,7 @@ joygao
 js
 json
 jthomas
+jti
 jupyter
 jupytercmd
 kaxil

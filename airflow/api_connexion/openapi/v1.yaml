@@ -1572,6 +1572,192 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /auth-info:
+    get:
+      summary: Get site authentication information
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: get_auth_info
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthInfo'
+
+  /auth/login:
+    post:
+      summary: Login user
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: auth_login
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthDBLoginForm'
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwtAuthAndUser'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+
+  /auth-oauth/{provider}:
+    get:
+      summary: OAUTH user login
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: auth_oauthlogin
+      tags: [Authentication]
+      parameters:
+        - $ref: '#/components/parameters/ShouldRegister'
+        - $ref: '#/components/parameters/OauthProvider'
+      responses:
+        '302':
+          description: Redirect.
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /oauth-authorized:
+    get:
+      summary: Oauth authentication
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: authorize_oauth
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwtAuthAndUser'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+
+  /auth-remoteuser:
+    get:
+      summary: Authenticate using remote user auth
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: auth_remoteuser
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Success.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwtAuthAndUser'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /refresh:
+    get:
+      summary: Refresh a token
+      description: Accepts refresh token and creates access token
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: refresh_token
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /revoke_access_token:
+    get:
+      summary: Revoke current user access token
+      description: |
+        An endpoint for revoking current user access token
+        This should be called during current user logout
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: revoke_current_user_token
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked:
+                    type: boolean
+                    description: Indicate user is logged out
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /revoke_refresh_token:
+    get:
+      summary: Revoke current user refresh token
+      description: |
+        An endpoint for revoking current user access token
+        This should be called during current user logout
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: revoke_current_user_refresh_token
+      tags: [Authentication]
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked:
+                    type: boolean
+                    description: Indicate user is logged out
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+
+  /revoke:
+    post:
+      summary: Revoke access and refresh token
+      description: |
+        An endpoint for revoking both access and refresh token.
+      x-openapi-router-controller: airflow.api_connexion.endpoints.auth_endpoint
+      operationId: revoke_token
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Revoke'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked:
+                    type: boolean
+                    description: Indicate token is revoked
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
 components:
   # Reusable schemas (data models)
   schemas:
@@ -2508,6 +2694,73 @@ components:
           type: object
           $ref: '#/components/schemas/Resource'
           description: The permission resource
+    # Auth
+    AuthInfo:
+      type: object
+      description: Information about the authentication method in use
+      properties:
+        auth_type:
+          type: string
+          description: Authentication type in use
+        oauth_providers:
+          type: array
+          items:
+            type: object
+          nullable: true
+        openid_providers:
+          type: array
+          items:
+            type: object
+          nullable: true
+
+    AuthDBLoginForm:
+      type: object
+      properties:
+        username:
+          description: The username for authentication
+          example: admin
+          type: string
+        password:
+          description: The password for authentication
+          example: complex-password
+          type: string
+
+    AuthorizationUrl:
+      description: Oauth authorization URl
+      type: object
+      properties:
+        auth_url:
+          type: string
+
+    JwtAuthAndUser:
+      description: Data returned after user authentication
+      type: object
+      allOf:
+        - type: object
+          properties:
+            token:
+              type: string
+              description: Authentication token
+            refresh_token:
+              type: string
+              description: Authentication refresh token
+        - $ref: '#/components/schemas/UserCollectionItem'
+
+    AccessToken:
+      description: Access Token
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: authentication token
+
+    Revoke:
+      description: Revoke a token
+      type: object
+      properties:
+        token:
+          type: string
+          description: The token to be revoked
 
     # Configuration
     ConfigOption:
@@ -2555,6 +2808,16 @@ components:
           nullable: true
 
     # Form
+    AccessRefresh:
+      type: object
+      properties:
+        token:
+          description: Access token
+          type: string
+        refresh_token:
+          description: Refresh token
+          type: string
+
     ClearTaskInstance:
       type: object
       properties:
@@ -3266,8 +3529,24 @@ components:
         The name of the field to order the results by.
         Prefix a field name with `-` to reverse the sort order.
 
-    # Other parameters
+    # Auth parameters
+    OauthProvider:
+      in: path
+      name: provider
+      schema:
+        type: string
+      required: true
+      description: The name of the provider to authenticate
 
+    ShouldRegister:
+      in: query
+      name: register
+      schema:
+        type: string
+      required: false
+      description: Whether to register user
+
+    # Other parameters
     FileToken:
       in: path
       name: file_token
@@ -3376,6 +3655,10 @@ components:
     Kerberos:
       type: http
       scheme: negotiate
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
 # The API will provide support for plugins to support various authorization mechanisms.
 # Detailed information will be available in the plugin specification.
@@ -3397,6 +3680,7 @@ tags:
   - name: Role
   - name: Permission
   - name: User
+  - name: Authentication
 
 externalDocs:
   url: https://airflow.apache.org/docs/apache-airflow/stable/
