@@ -86,6 +86,7 @@ class BaseTaskRunner(LoggingMixin):
 
         # pylint: disable=consider-using-with
         self._error_file = NamedTemporaryFile(delete=True)
+        os.chmod(self._error_file.name, 0o0777)
         self._cfg_path = cfg_path
         self._command = (
             popen_prepend
