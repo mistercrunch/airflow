@@ -21,7 +21,7 @@ import pickle
 import sys
 import types
 import warnings
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, tempdir
 from textwrap import dedent
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 
@@ -377,9 +377,20 @@ class PythonVirtualenvOperator(PythonOperator):
                 render_template_as_native_obj=self.dag.render_template_as_native_obj,
             )
 
+            # find python executable folder
+            candidates = [os.path.join(tmp_dir, 'bin'), os.path.join(tmp_dir, 'scripts')]
+            python_folder = None
+            for candidate in candidates:
+                if os.path.isdir(candidate):
+                    python_folder = candidate
+                    break
+
+            if python_folder is None:
+                raise AirflowException(f'Unable to find python executable in "{tempdir}"')
+
             execute_in_subprocess(
                 cmd=[
-                    f'{tmp_dir}/bin/python',
+                    os.path.join(python_folder, 'python'),
                     script_filename,
                     input_filename,
                     output_filename,

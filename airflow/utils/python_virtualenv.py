@@ -38,8 +38,17 @@ def _generate_virtualenv_cmd(tmp_dir: str, python_bin: str, system_site_packages
 def _generate_pip_install_cmd(tmp_dir: str, requirements: List[str]) -> Optional[List[str]]:
     if not requirements:
         return None
+
+    # determine pip directory
+    candidates = [os.path.join(tmp_dir, 'bin'), os.path.join(tmp_dir, 'scripts')]
+    pip_folder = None
+    for candidate in candidates:
+        if os.path.isdir(candidate):
+            pip_folder = candidate
+            break
+
     # direct path alleviates need to activate
-    cmd = [f'{tmp_dir}/bin/pip', 'install']
+    cmd = [os.path.join(pip_folder, 'pip'), 'install']
     return cmd + requirements
 
 

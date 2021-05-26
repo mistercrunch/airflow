@@ -25,6 +25,7 @@ import httpx
 
 from airflow.configuration import AirflowConfigException, conf
 from airflow.utils.helpers import parse_template_string
+from airflow.utils.platform_utils import is_windows
 
 if TYPE_CHECKING:
     from airflow.models import TaskInstance
@@ -82,14 +83,28 @@ class FileTaskHandler(logging.Handler):
                     'ts': ti.execution_date.isoformat(),
                     'try_number': try_number,
                 }
-            return self.filename_jinja_template.render(**jinja_context)
+            result_name = self.filename_jinja_template.render(**jinja_context)
+        else:
+            result_name = self.filename_template.format(
+                dag_id=ti.dag_id,
+                task_id=ti.task_id,
+                execution_date=ti.execution_date.isoformat(),
+                try_number=try_number,
+            )
 
-        return self.filename_template.format(
-            dag_id=ti.dag_id,
-            task_id=ti.task_id,
-            execution_date=ti.execution_date.isoformat(),
-            try_number=try_number,
-        )
+        # replace ":" with "_" for windows systems
+        if is_windows() and ':' in result_name:
+            print(''.join([
+                'WARNING: Log file template contains ":" characters ',
+                'which cannot be used on Windows systems.\n\n',
+                'Please modify "airflow.cfg":\n',
+                '\t e.g. log_filename_template = {{{{ ti.dag_id }}}}/{{{{ ti.task_id }}}}/{{{{ ts }}}}/{{{{ try_number }}}}.log -> ',
+                'log_filename_template = {{{{ ti.dag_id }}}}/{{{{ ti.task_id }}}}/{{{{ ts | replace(":", "_") }}}}/{{{{ try_number }}}}.log\n\n',
+                'The offending ":" have been replaced with "_" characeters but note that this might cause other systems ',
+                'which are configured differently to not find the log files.'
+            ]))
+            result_name = result_name.replace(':', '_')
+        return result_name
 
     def _read_grouped_logs(self):
         return False

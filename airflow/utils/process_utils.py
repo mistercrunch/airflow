@@ -20,14 +20,20 @@
 import errno
 import logging
 import os
-import pty
 import select
 import shlex
 import signal
 import subprocess
 import sys
-import termios
-import tty
+from airflow.utils.platform_utils import is_windows
+
+if is_windows():
+    from airflow.windows_extensions import termios, tty, pty
+else:
+    import pty
+    import termios
+    import tty
+
 from contextlib import contextmanager
 from typing import Dict, List
 
@@ -68,7 +74,10 @@ def reap_process_group(
 
     def signal_procs(sig):
         try:
-            os.killpg(pgid, sig)
+            if is_windows():
+                os.kill(pgid, sig)
+            else:
+                os.killpg(pgid, sig)
         except OSError as err:
             # If operation not permitted error is thrown due to run_as_user,
             # use sudo -n(--non-interactive) to kill the process
@@ -79,7 +88,7 @@ def reap_process_group(
             else:
                 raise
 
-    if pgid == os.getpgid(0):
+    if is_windows() and pgid == os.getpid() or not is_windows() and pgid == os.getpgid(0):
         raise RuntimeError("I refuse to kill myself")
 
     try:
