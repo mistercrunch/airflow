@@ -1,1 +1,1 @@
-from airflow.windows_extensions.Signals import Signals
+from airflow.windows_extensions.signals import Signals

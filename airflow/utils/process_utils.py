@@ -25,15 +25,7 @@ import shlex
 import signal
 import subprocess
 import sys
-from airflow.utils.platform_utils import is_windows
-
-if is_windows():
-    from airflow.windows_extensions import termios, tty, pty
-else:
-    import pty
-    import termios
-    import tty
-
+from airflow.platform import termios, tty, pty, IS_WINDOWS
 from contextlib import contextmanager
 from typing import Dict, List
 
@@ -74,7 +66,7 @@ def reap_process_group(
 
     def signal_procs(sig):
         try:
-            if is_windows():
+            if IS_WINDOWS:
                 os.kill(pgid, sig)
             else:
                 os.killpg(pgid, sig)
@@ -88,7 +80,7 @@ def reap_process_group(
             else:
                 raise
 
-    if is_windows() and pgid == os.getpid() or not is_windows() and pgid == os.getpgid(0):
+    if IS_WINDOWS and pgid == os.getpid() or not IS_WINDOWS and pgid == os.getpgid(0):
         raise RuntimeError("I refuse to kill myself")
 
     try:

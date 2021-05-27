@@ -29,7 +29,6 @@ from airflow.utils.configuration import tmp_configuration_copy
 from airflow.utils.log.logging_mixin import LoggingMixin
 from airflow.utils.net import get_hostname
 from airflow.utils.platform import getuser
-from airflow.utils.platform_utils import is_windows
 
 PYTHONPATH_VAR = 'PYTHONPATH'
 
@@ -87,10 +86,7 @@ class BaseTaskRunner(LoggingMixin):
 
         # pylint: disable=consider-using-with
         self._error_file = NamedTemporaryFile(delete=True)
-
-        # HOTFIX: When reporting exceptions, this file was usually locked because it was still opened by this process
-        self._error_file.close()
-
+        
         self._cfg_path = cfg_path
         self._command = (
             popen_prepend
@@ -139,27 +135,16 @@ class BaseTaskRunner(LoggingMixin):
         self.log.info("Running on host: %s", get_hostname())
         self.log.info('Running: %s', full_cmd)
 
-        if is_windows():
-            # pylint: disable=subprocess-popen-preexec-fn,consider-using-with
-            proc = subprocess.Popen(
-                full_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-                close_fds=True,
-                env=os.environ.copy()
-            )
-        else:
-            # pylint: disable=subprocess-popen-preexec-fn,consider-using-with
-            proc = subprocess.Popen(
-                full_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-                close_fds=True,
-                env=os.environ.copy(),
-                preexec_fn=os.setsid,       # does not exist on Windows
-            )
+        # pylint: disable=subprocess-popen-preexec-fn,consider-using-with
+        proc = subprocess.Popen(
+            full_cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            close_fds=True,
+            env=os.environ.copy(),
+            start_new_session=True
+        )
 
         # Start daemon thread to read subprocess logging output
         log_reader = threading.Thread(

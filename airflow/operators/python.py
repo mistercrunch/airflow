@@ -17,6 +17,7 @@
 # under the License.
 import inspect
 import os
+import shutil
 import pickle
 import sys
 import types
@@ -379,18 +380,14 @@ class PythonVirtualenvOperator(PythonOperator):
 
             # find python executable folder
             candidates = [os.path.join(tmp_dir, 'bin'), os.path.join(tmp_dir, 'scripts')]
-            python_folder = None
-            for candidate in candidates:
-                if os.path.isdir(candidate):
-                    python_folder = candidate
-                    break
+            python_executable = shutil.which('python', os.pathsep.join(candidates))
 
-            if python_folder is None:
-                raise AirflowException(f'Unable to find python executable in "{tempdir}"')
+            if python_executable is None:
+                raise AirflowException(f'Unable to find python executable in "{tmp_dir}"')
 
             execute_in_subprocess(
                 cmd=[
-                    os.path.join(python_folder, 'python'),
+                    python_executable,
                     script_filename,
                     input_filename,
                     output_filename,

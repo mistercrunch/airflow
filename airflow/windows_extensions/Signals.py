@@ -1,5 +1,6 @@
 import enum
 
+
 class Signals(enum.Enum):
     SIGHUP = 1
     SIGINT = 2

@@ -25,7 +25,7 @@ import httpx
 
 from airflow.configuration import AirflowConfigException, conf
 from airflow.utils.helpers import parse_template_string
-from airflow.utils.platform_utils import is_windows
+from airflow.platform import IS_WINDOWS
 
 if TYPE_CHECKING:
     from airflow.models import TaskInstance
@@ -93,7 +93,7 @@ class FileTaskHandler(logging.Handler):
             )
 
         # replace ":" with "_" for windows systems
-        if is_windows() and ':' in result_name:
+        if IS_WINDOWS and ':' in result_name:
             print(''.join([
                 'WARNING: Log file template contains ":" characters ',
                 'which cannot be used on Windows systems.\n\n',

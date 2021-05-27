@@ -28,10 +28,13 @@ from contextlib import suppress
 from time import sleep
 from typing import Dict, List, NoReturn
 
-import daemon
+from airflow.platform import IS_WINDOWS
 import psutil
-from daemon.pidfile import TimeoutPIDLockFile
-from lockfile.pidlockfile import read_pid_from_pidfile
+
+if not IS_WINDOWS:
+    import daemon
+    from daemon.pidfile import TimeoutPIDLockFile
+    from lockfile.pidlockfile import read_pid_from_pidfile
 
 from airflow import settings
 from airflow.configuration import conf

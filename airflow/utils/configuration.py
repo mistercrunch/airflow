@@ -21,7 +21,7 @@ import os
 from tempfile import mkstemp
 
 from airflow.configuration import conf
-from airflow.utils.platform_utils import is_windows
+from airflow.platform import IS_WINDOWS
 
 
 def tmp_configuration_copy(chmod=0o600):
@@ -36,7 +36,7 @@ def tmp_configuration_copy(chmod=0o600):
     with os.fdopen(temp_fd, 'w') as temp_file:
         # Set the permissions before we write anything to it.
         # On windows this does not work and the permissions seem to be ok (if not look for NTFS based solution)
-        if chmod is not None and not is_windows():
+        if chmod is not None and not IS_WINDOWS:
             os.fchmod(temp_fd, chmod)
         json.dump(cfg_dict, temp_file)
 

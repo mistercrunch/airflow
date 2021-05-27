@@ -17,13 +17,7 @@
 # under the License.
 
 import os
-from airflow.utils.platform_utils import is_windows
-
-if is_windows():
-    from airflow.windows_extensions import signal
-else:
-    import signal
-
+from airflow.platform import signal
 from airflow.exceptions import AirflowTaskTimeout
 from airflow.utils.log.logging_mixin import LoggingMixin
 
