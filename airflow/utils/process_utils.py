@@ -25,7 +25,13 @@ import shlex
 import signal
 import subprocess
 import sys
-from airflow.platform import termios, tty, pty, IS_WINDOWS
+from airflow.utils.platform import IS_WINDOWS
+
+if not IS_WINDOWS:
+    import tty
+    import termios
+    import pty
+
 from contextlib import contextmanager
 from typing import Dict, List
 
@@ -156,11 +162,13 @@ def execute_interactive(cmd: List[str], **kwargs):
     """
     log.info("Executing cmd: %s", " ".join(shlex.quote(c) for c in cmd))
 
-    old_tty = termios.tcgetattr(sys.stdin)
-    tty.setraw(sys.stdin.fileno())
+    if not IS_WINDOWS:
+        old_tty = termios.tcgetattr(sys.stdin)
+        tty.setraw(sys.stdin.fileno())
 
-    # open pseudo-terminal to interact with subprocess
-    master_fd, slave_fd = pty.openpty()
+        # open pseudo-terminal to interact with subprocess
+        master_fd, slave_fd = pty.openpty()
+
     try:  # pylint: disable=too-many-nested-blocks
         # use os.setsid() make it run in a new process group, or bash job control will not be enabled
         with subprocess.Popen(
@@ -176,8 +184,9 @@ def execute_interactive(cmd: List[str], **kwargs):
                     if output_data:
                         os.write(sys.stdout.fileno(), output_data)
     finally:
-        # restore tty settings back
-        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty)
+        if not IS_WINDOWS:
+            # restore tty settings back
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_tty)
 
 
 def kill_child_processes_by_pids(pids_to_kill: List[int], timeout: int = 5) -> None:

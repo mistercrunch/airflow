@@ -25,7 +25,7 @@ import httpx
 
 from airflow.configuration import AirflowConfigException, conf
 from airflow.utils.helpers import parse_template_string
-from airflow.platform import IS_WINDOWS
+from airflow.utils.platform import IS_WINDOWS
 
 if TYPE_CHECKING:
     from airflow.models import TaskInstance

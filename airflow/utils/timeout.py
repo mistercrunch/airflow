@@ -17,9 +17,13 @@
 # under the License.
 
 import os
-from airflow.platform import signal
+from threading import Timer
+import signal
+from airflow.utils.platform import IS_WINDOWS
 from airflow.exceptions import AirflowTaskTimeout
 from airflow.utils.log.logging_mixin import LoggingMixin
+
+TIMER_THREAD_ATTR = '_timer_thread'
 
 
 class timeout(LoggingMixin):  # pylint: disable=invalid-name
@@ -30,20 +34,34 @@ class timeout(LoggingMixin):  # pylint: disable=invalid-name
         self.seconds = seconds
         self.error_message = error_message + ', PID: ' + str(os.getpid())
 
-    def handle_timeout(self, signum, frame):  # pylint: disable=unused-argument
+    def handle_timeout(self, *args):  # pylint: disable=unused-argument
         """Logs information and raises AirflowTaskTimeout."""
         self.log.error("Process timed out, PID: %s", str(os.getpid()))
         raise AirflowTaskTimeout(self.error_message)
 
     def __enter__(self):
         try:
-            signal.signal(signal.SIGALRM, self.handle_timeout)
-            signal.setitimer(signal.ITIMER_REAL, self.seconds)
+            if IS_WINDOWS:
+                if hasattr(self, TIMER_THREAD_ATTR) and getattr(self, TIMER_THREAD_ATTR) is not None:
+                    getattr(self, TIMER_THREAD_ATTR).cancel()
+                timer = Timer(self.seconds, self.handle_timeout)
+                setattr(self, TIMER_THREAD_ATTR, timer)
+                timer.start()
+            else:
+                signal.signal(signal.SIGALRM, self.handle_timeout)
+                signal.setitimer(signal.ITIMER_REAL, self.seconds)
         except ValueError:
             self.log.warning("timeout can't be used in the current context", exc_info=True)
 
     def __exit__(self, type_, value, traceback):
         try:
-            signal.setitimer(signal.ITIMER_REAL, 0)
+            if IS_WINDOWS:
+                if hasattr(self, TIMER_THREAD_ATTR) and getattr(self, TIMER_THREAD_ATTR) is not None:
+                    getattr(self, TIMER_THREAD_ATTR).cancel()
+                    setattr(self, TIMER_THREAD_ATTR, None)
+            else:
+                signal.setitimer(signal.ITIMER_REAL, 0)
+
         except ValueError:
             self.log.warning("timeout can't be used in the current context", exc_info=True)
+
