@@ -1344,12 +1344,6 @@ class TaskInstance(Base, LoggingMixin):
             if task.on_success_callback is not None:
                 context = self.get_template_context()
                 task.on_success_callback(context)
-        elif self.state == State.UP_FOR_RETRY:
-            task = self.task
-            if task.on_retry_callback is not None:
-                context = self.get_template_context()
-                context["exception"] = error
-                task.on_retry_callback(context)
 
     @provide_session
     def run(
@@ -1489,6 +1483,12 @@ class TaskInstance(Base, LoggingMixin):
         else:
             self.state = State.UP_FOR_RETRY
             email_for_state = task.email_on_retry
+            task = self.task
+            # UP_FOR_RETRY is not a finished state so we check the callback here
+            if task.on_retry_callback is not None:
+                context = self.get_template_context()
+                context["exception"] = error
+                task.on_retry_callback(context)
 
         self._log_state('Immediate failure requested. ' if force_fail else '')
         if email_for_state and task.email:
@@ -1496,7 +1496,6 @@ class TaskInstance(Base, LoggingMixin):
                 self.email_alert(error)
             except Exception:
                 self.log.exception('Failed to send email to: %s', task.email)
-
         if not test_mode:
             session.merge(self)
         session.commit()
