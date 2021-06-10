@@ -46,15 +46,11 @@ from typing import (
 
 import attr
 import jinja2
-
-try:
-    from functools import cached_property
-except ImportError:
-    from cached_property import cached_property
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 
 import airflow.templates
+from airflow.compat.functools import cached_property
 from airflow.configuration import conf
 from airflow.exceptions import AirflowException
 from airflow.lineage import apply_lineage, prepare_lineage
@@ -175,6 +171,12 @@ class BaseOperatorMeta(abc.ABCMeta):
 
             if dag_params:
                 kwargs['params'] = dag_params
+
+            if default_args:
+                kwargs['default_args'] = default_args
+
+            if hasattr(self, '_hook_apply_defaults'):
+                args, kwargs = self._hook_apply_defaults(*args, **kwargs)  # pylint: disable=protected-access
 
             result = func(self, *args, **kwargs)
 
