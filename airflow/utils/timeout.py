@@ -22,12 +22,43 @@ import signal
 from airflow.utils.platform import IS_WINDOWS
 from airflow.exceptions import AirflowTaskTimeout
 from airflow.utils.log.logging_mixin import LoggingMixin
+from typing import ContextManager, Type
 
-TIMER_THREAD_ATTR = '_timer_thread'
+_timeout = ContextManager[None]
 
 
-class timeout(LoggingMixin):  # pylint: disable=invalid-name
-    """To be used in a ``with`` block and timeout its content."""
+class _timeout_windows(_timeout, LoggingMixin):
+
+    def __init__(self, seconds=1, error_message='Timeout'):
+        super().__init__()
+        self._timer: Timer = None
+        self.seconds = seconds
+        self.error_message = error_message + ': Operation timed out.'
+
+    def handle_timeout(self, *args):  # pylint: disable=unused-argument
+        """Logs information and raises AirflowTaskTimeout."""
+        self.log.error("Operation timed out.")
+        raise AirflowTaskTimeout(self.error_message)
+
+    def __enter__(self):
+        try:
+            if self._timer:
+                self._timer.cancel()
+            self._timer = Timer(self.seconds, self.handle_timeout)
+            self._timer.start()
+        except ValueError:
+            self.log.warning("timeout can't be used in the current context", exc_info=True)
+
+    def __exit__(self, type_, value, traceback):
+        try:
+            if self._timer:
+                self._timer.cancel()
+                self._timer = None
+        except ValueError:
+            self.log.warning("timeout can't be used in the current context", exc_info=True)
+
+
+class _timeout_posix(_timeout, LoggingMixin):
 
     def __init__(self, seconds=1, error_message='Timeout'):
         super().__init__()
@@ -41,27 +72,19 @@ class timeout(LoggingMixin):  # pylint: disable=invalid-name
 
     def __enter__(self):
         try:
-            if IS_WINDOWS:
-                if hasattr(self, TIMER_THREAD_ATTR) and getattr(self, TIMER_THREAD_ATTR) is not None:
-                    getattr(self, TIMER_THREAD_ATTR).cancel()
-                timer = Timer(self.seconds, self.handle_timeout)
-                setattr(self, TIMER_THREAD_ATTR, timer)
-                timer.start()
-            else:
-                signal.signal(signal.SIGALRM, self.handle_timeout)
-                signal.setitimer(signal.ITIMER_REAL, self.seconds)
+            signal.signal(signal.SIGALRM, self.handle_timeout)
+            signal.setitimer(signal.ITIMER_REAL, self.seconds)
         except ValueError:
             self.log.warning("timeout can't be used in the current context", exc_info=True)
 
     def __exit__(self, type_, value, traceback):
         try:
-            if IS_WINDOWS:
-                if hasattr(self, TIMER_THREAD_ATTR) and getattr(self, TIMER_THREAD_ATTR) is not None:
-                    getattr(self, TIMER_THREAD_ATTR).cancel()
-                    setattr(self, TIMER_THREAD_ATTR, None)
-            else:
-                signal.setitimer(signal.ITIMER_REAL, 0)
-
+            signal.setitimer(signal.ITIMER_REAL, 0)
         except ValueError:
             self.log.warning("timeout can't be used in the current context", exc_info=True)
 
+
+if IS_WINDOWS:
+    timeout: Type[_timeout] = _timeout_windows
+else:
+    timeout = _timeout_posix
