@@ -16,6 +16,7 @@
 # under the License.
 
 """Objects relating to sourcing connections from Google Cloud Secrets Manager"""
+import logging
 from typing import Optional
 
 try:
@@ -28,6 +29,8 @@ from airflow.providers.google.cloud._internal_client.secret_manager_client impor
 from airflow.providers.google.cloud.utils.credentials_provider import get_credentials_and_project_id
 from airflow.secrets import BaseSecretsBackend
 from airflow.utils.log.logging_mixin import LoggingMixin
+
+log = logging.getLogger()
 
 SECRET_ID_PATTERN = r"^[a-zA-Z0-9-_]*$"
 
@@ -101,9 +104,13 @@ class CloudSecretManagerBackend(BaseSecretsBackend, LoggingMixin):
                     "`connections_prefix`, `variables_prefix` and `sep` should "
                     f"follows that pattern {SECRET_ID_PATTERN}"
                 )
-        self.credentials, self.project_id = get_credentials_and_project_id(
-            keyfile_dict=gcp_keyfile_dict, key_path=gcp_key_path, scopes=gcp_scopes
-        )
+        try:
+            self.credentials, self.project_id = get_credentials_and_project_id(
+                keyfile_dict=gcp_keyfile_dict, key_path=gcp_key_path, scopes=gcp_scopes
+            )
+        except Exception as e:
+            log.exception(f'{e}')
+
         # In case project id provided
         if project_id:
             self.project_id = project_id
