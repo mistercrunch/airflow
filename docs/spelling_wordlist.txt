@@ -164,6 +164,7 @@ Github
 Gitter
 Glassdoor
 Gmail
+Grafana
 Groupalia
 Groupon
 Grpc
@@ -241,6 +242,7 @@ ListGenerator
 ListInfoTypesResponse
 Liveness
 Logstash
+Loki
 Lowin
 Lyft
 Maheshwari

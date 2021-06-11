@@ -327,6 +327,9 @@ google = [
     # _check_google_client_version (airflow/providers/google/cloud/hooks/bigquery.py:49)
     'pandas-gbq<0.15.0',
 ]
+grafana = [
+    'python-logging-loki==0.3.1',
+]
 grpc = [
     'google-auth>=1.0.0, <2.0.0dev',
     'google-auth-httplib2>=0.0.1',
@@ -570,6 +573,7 @@ PROVIDERS_REQUIREMENTS: Dict[str, List[str]] = {
     'facebook': facebook,
     'ftp': [],
     'google': google,
+    'grafana': grafana,
     'grpc': grpc,
     'hashicorp': hashicorp,
     'http': http,
