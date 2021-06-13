@@ -16,6 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+import os
 import signal
 from typing import Optional
 
@@ -79,8 +80,7 @@ class LocalTaskJob(BaseJob):
             """Setting kill signal handler"""
             self.log.error("Received SIGTERM. Terminating subprocesses")
             self.task_instance.refresh_from_db()
-            self.on_kill()
-            raise AirflowException("LocalTaskJob received SIGTERM signal")
+            os.kill(self.task_instance.pid, signum)
 
         signal.signal(signal.SIGTERM, signal_handler)
 
