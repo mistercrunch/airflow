@@ -570,7 +570,7 @@ class TestLocalTaskJob(unittest.TestCase):
     @parameterized.expand([(signal.SIGKILL,), (signal.SIGTERM,)])
     def test_task_sigkill_sigterm_calls_on_failure_callback(self, sigtype):
         """
-        Test that ensures that when a task is killed with sigkill
+        Test that ensures that when a task is killed with sigterm or sigkill
         on_failure_callback gets executed
         """
         # use shared memory value so we can properly track value change even if
@@ -735,7 +735,7 @@ class TestLocalTaskJob(unittest.TestCase):
     @parameterized.expand([(signal.SIGKILL,), (signal.SIGTERM,)])
     def test_task_sigkill_sigterm_works_with_retries(self, sigtype):
         """
-        Test that ensures that task runner retries tasks when they receive sigkill
+        Test that ensures that task runner retries tasks when they receive sigkill or sigterm
         """
         # use shared memory value so we can properly track value change even if
         # it's been updated across processes.

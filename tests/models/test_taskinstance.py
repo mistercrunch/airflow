@@ -518,7 +518,7 @@ class TestTaskInstance(unittest.TestCase):
         ti.run()
         assert State.SKIPPED == ti.state
 
-    def test_task_sigkill_sigterm_works_with_retries(self):
+    def test_task_sigterm_works_with_retries(self):
         """
         Test that ensures that tasks are retried when they receive sigterm
         """
