@@ -33,29 +33,23 @@ class _timeout_windows(_timeout, LoggingMixin):
         super().__init__()
         self._timer: Timer = None
         self.seconds = seconds
-        self.error_message = error_message + ': Operation timed out.'
+        self.error_message = error_message + ', PID: ' + str(os.getpid())
 
     def handle_timeout(self, *args):  # pylint: disable=unused-argument
         """Logs information and raises AirflowTaskTimeout."""
-        self.log.error("Operation timed out.")
+        self.log.error("Process timed out, PID: %s", str(os.getpid()))
         raise AirflowTaskTimeout(self.error_message)
 
     def __enter__(self):
-        try:
-            if self._timer:
-                self._timer.cancel()
-            self._timer = Timer(self.seconds, self.handle_timeout)
-            self._timer.start()
-        except ValueError:
-            self.log.warning("timeout can't be used in the current context", exc_info=True)
+        if self._timer:
+            self._timer.cancel()
+        self._timer = Timer(self.seconds, self.handle_timeout)
+        self._timer.start()
 
     def __exit__(self, type_, value, traceback):
-        try:
-            if self._timer:
-                self._timer.cancel()
-                self._timer = None
-        except ValueError:
-            self.log.warning("timeout can't be used in the current context", exc_info=True)
+        if self._timer:
+            self._timer.cancel()
+            self._timer = None
 
 
 class _timeout_posix(_timeout, LoggingMixin):
