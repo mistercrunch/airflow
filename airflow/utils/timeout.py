@@ -22,7 +22,7 @@ import signal
 from airflow.utils.platform import IS_WINDOWS
 from airflow.exceptions import AirflowTaskTimeout
 from airflow.utils.log.logging_mixin import LoggingMixin
-from typing import ContextManager, Type
+from typing import ContextManager, Optional, Type
 
 _timeout = ContextManager[None]
 
