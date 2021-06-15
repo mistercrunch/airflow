@@ -86,8 +86,9 @@ def reap_process_group(
             else:
                 raise
 
-    if IS_WINDOWS and pgid == os.getpid() or not IS_WINDOWS and pgid == os.getpgid(0):
-        raise RuntimeError("I refuse to kill myself")
+    my_pgid = os.getpid() if IS_WINDOWS else os.getpgid(0)
+    if pgid == my_pgid:
+        raise RuntimeError("I refuse to send signal to myself")        
 
     try:
         parent = psutil.Process(pgid)
