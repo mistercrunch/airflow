@@ -24,6 +24,8 @@ try:
 except ImportError:
     from cached_property import cached_property
 
+from google.auth.exceptions import DefaultCredentialsError
+
 from airflow.exceptions import AirflowException
 from airflow.providers.google.cloud._internal_client.secret_manager_client import _SecretManagerClient
 from airflow.providers.google.cloud.utils.credentials_provider import get_credentials_and_project_id
@@ -108,8 +110,12 @@ class CloudSecretManagerBackend(BaseSecretsBackend, LoggingMixin):
             self.credentials, self.project_id = get_credentials_and_project_id(
                 keyfile_dict=gcp_keyfile_dict, key_path=gcp_key_path, scopes=gcp_scopes
             )
-        except Exception as e:
-            log.exception(f'{e}')
+        except (DefaultCredentialsError, FileNotFoundError):
+            log.exception(
+                'Unable to load credentials for GCP Secret Manager. '
+                'Make sure that you have properly configured the '
+                'keyfile path, dictionary, or Workload Identity correctly.'
+            )
 
         # In case project id provided
         if project_id:
