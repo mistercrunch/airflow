@@ -19,7 +19,7 @@
 import json
 import warnings
 from json import JSONDecodeError
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from urllib.parse import parse_qsl, quote, unquote, urlencode, urlparse
 
 from sqlalchemy import Boolean, Column, Integer, String, Text
@@ -117,12 +117,14 @@ class Connection(Base, LoggingMixin):  # pylint: disable=too-many-instance-attri
         password: Optional[str] = None,
         schema: Optional[str] = None,
         port: Optional[int] = None,
-        extra: Optional[str] = None,
+        extra: Optional[Union[str, dict]] = None,
         uri: Optional[str] = None,
     ):
         super().__init__()
         self.conn_id = conn_id
         self.description = description
+        if extra and not isinstance(extra, str):
+            extra = json.dumps(extra)
         if uri and (  # pylint: disable=too-many-boolean-expressions
             conn_type or host or login or password or schema or port or extra
         ):
@@ -347,6 +349,22 @@ class Connection(Base, LoggingMixin):  # pylint: disable=too-many-instance-attri
             "XXXXXXXX" if self.password else None,
             self.extra_dejson,
         )
+
+    def test_connection(self):
+        """Calls out get_hook method and executes test_connection method on that."""
+        status, message = False, ''
+        try:
+            hook = self.get_hook()
+            if getattr(hook, 'test_connection', False):
+                status, message = hook.test_connection()
+            else:
+                message = (
+                    f"Hook {hook.__class__.__name__} doesn't implement or inherit test_connection method"
+                )
+        except Exception as e:  # noqa pylint: disable=broad-except
+            message = str(e)
+
+        return status, message
 
     @property
     def extra_dejson(self) -> Dict:

@@ -36,6 +36,7 @@ from typing import Dict, List, Optional, Union
 
 from airflow.exceptions import AirflowConfigException
 from airflow.secrets import DEFAULT_SECRETS_SEARCH_PATH, BaseSecretsBackend
+from airflow.utils import yaml
 from airflow.utils.module_loading import import_string
 
 log = logging.getLogger(__name__)
@@ -91,14 +92,12 @@ def _default_config_file_path(file_name: str):
     return os.path.join(templates_dir, file_name)
 
 
-def default_config_yaml() -> dict:
+def default_config_yaml() -> List[dict]:
     """
     Read Airflow configs from YAML file
 
     :return: Python dictionary containing configs & their info
     """
-    import airflow.utils.yaml as yaml
-
     with open(_default_config_file_path('config.yml')) as config_file:
         return yaml.safe_load(config_file)
 
@@ -163,6 +162,7 @@ class AirflowConfigParser(ConfigParser):  # pylint: disable=too-many-ancestors
         ('core', 'hide_sensitive_var_conn_fields'): ('admin', 'hide_sensitive_variable_fields', '2.1.0'),
         ('core', 'sensitive_var_conn_names'): ('admin', 'sensitive_variable_fields', '2.1.0'),
         ('core', 'default_pool_task_slot_count'): ('core', 'non_pooled_task_slot_count', '1.10.4'),
+        ('core', 'max_active_tasks_per_dag'): ('core', 'dag_concurrency', '2.2.0'),
     }
 
     # A mapping of old default values that we want to change and warn the user
@@ -874,9 +874,6 @@ def initialize_config():
 
         log.info('Creating new FAB webserver config file in: %s', WEBSERVER_CONFIG)
         shutil.copy(_default_config_file_path('default_webserver_config.py'), WEBSERVER_CONFIG)
-
-    conf.validate()
-
     return conf
 
 
@@ -1115,6 +1112,7 @@ WEBSERVER_CONFIG = ''  # Set by initialize_config
 
 conf = initialize_config()
 secrets_backend_list = initialize_secrets_backends()
+conf.validate()
 
 
 PY37 = sys.version_info >= (3, 7)

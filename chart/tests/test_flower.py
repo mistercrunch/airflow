@@ -47,22 +47,10 @@ class TestFlowerDeployment:
     @pytest.mark.parametrize(
         "airflow_version, expected_arg",
         [
-            (
-                "2.0.2",
-                "airflow celery flower",
-            ),
-            (
-                "1.10.14",
-                "airflow flower",
-            ),
-            (
-                "1.9.0",
-                "airflow flower",
-            ),
-            (
-                "2.1.0",
-                "airflow celery flower",
-            ),
+            ("2.0.2", "airflow celery flower"),
+            ("1.10.14", "airflow flower"),
+            ("1.9.0", "airflow flower"),
+            ("2.1.0", "airflow celery flower"),
         ],
     )
     def test_args_with_airflow_version(self, airflow_version, expected_arg):
@@ -78,8 +66,35 @@ class TestFlowerDeployment:
         assert jmespath.search("spec.template.spec.containers[0].args", docs[0]) == [
             "bash",
             "-c",
-            expected_arg,
+            f"exec \\\n{expected_arg}",
         ]
+
+    @pytest.mark.parametrize(
+        "command, args",
+        [
+            (None, None),
+            (None, ["custom", "args"]),
+            (["custom", "command"], None),
+            (["custom", "command"], ["custom", "args"]),
+        ],
+    )
+    def test_command_and_args_overrides(self, command, args):
+        docs = render_chart(
+            values={"flower": {"command": command, "args": args}},
+            show_only=["templates/flower/flower-deployment.yaml"],
+        )
+
+        assert command == jmespath.search("spec.template.spec.containers[0].command", docs[0])
+        assert args == jmespath.search("spec.template.spec.containers[0].args", docs[0])
+
+    def test_command_and_args_overrides_are_templated(self):
+        docs = render_chart(
+            values={"flower": {"command": ["{{ .Release.Name }}"], "args": ["{{ .Release.Service }}"]}},
+            show_only=["templates/flower/flower-deployment.yaml"],
+        )
+
+        assert ["RELEASE-NAME"] == jmespath.search("spec.template.spec.containers[0].command", docs[0])
+        assert ["Helm"] == jmespath.search("spec.template.spec.containers[0].args", docs[0])
 
     def test_should_create_flower_deployment_with_authorization(self):
         docs = render_chart(
@@ -188,6 +203,37 @@ class TestFlowerDeployment:
             show_only=["templates/flower/flower-deployment.yaml"],
         )
         assert jmespath.search("spec.template.spec.containers[0].resources", docs[0]) == {}
+
+    def test_should_add_extra_containers(self):
+        docs = render_chart(
+            values={
+                "flower": {
+                    "extraContainers": [
+                        {"name": "test-container", "image": "test-registry/test-repo:test-tag"}
+                    ],
+                },
+            },
+            show_only=["templates/flower/flower-deployment.yaml"],
+        )
+
+        assert {
+            "name": "test-container",
+            "image": "test-registry/test-repo:test-tag",
+        } == jmespath.search("spec.template.spec.containers[-1]", docs[0])
+
+    def test_should_add_extra_volumes(self):
+        docs = render_chart(
+            values={
+                "flower": {
+                    "extraVolumes": [{"name": "myvolume", "emptyDir": {}}],
+                },
+            },
+            show_only=["templates/flower/flower-deployment.yaml"],
+        )
+
+        assert {"name": "myvolume", "emptyDir": {}} == jmespath.search(
+            "spec.template.spec.volumes[-1]", docs[0]
+        )
 
 
 class TestFlowerService:
