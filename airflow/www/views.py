@@ -1490,6 +1490,7 @@ class Airflow(AirflowBaseView):  # noqa: D101  pylint: disable=too-many-public-m
         """Triggers DAG Run."""
         dag_id = request.values.get('dag_id')
         origin = get_safe_url(request.values.get('origin'))
+        unpause = request.values.get('unpause')
         request_conf = request.values.get('conf')
 
         if request.method == 'GET':
@@ -1533,6 +1534,10 @@ class Airflow(AirflowBaseView):  # noqa: D101  pylint: disable=too-many-public-m
                 )
 
         dag = current_app.dag_bag.get_dag(dag_id)
+
+        if unpause and dag.is_paused:
+            models.DagModel.get_dagmodel(dag_id).set_is_paused(is_paused=False)
+
         dag.create_dagrun(
             run_type=DagRunType.MANUAL,
             execution_date=execution_date,
