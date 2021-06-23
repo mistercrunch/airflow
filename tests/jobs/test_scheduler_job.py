@@ -555,8 +555,7 @@ class TestDagFileProcessor(unittest.TestCase):
         self.scheduler_job = SchedulerJob(subdir=os.devnull)
         self.scheduler_job.dagbag.bag_dag(dag, root_dag=dag)
 
-        # Since we don't want to store the code for the DAG defined in this file
-        with mock.patch.object(settings, "STORE_DAG_CODE", False):
+        with mock.patch('airflow.models.dag.DagCode.bulk_sync_to_db'):
             self.scheduler_job.dagbag.sync_to_db()
 
         session = settings.Session()
@@ -804,7 +803,7 @@ class TestSchedulerJob(unittest.TestCase):
 
         self.patcher = patch('airflow.utils.dag_processing.SerializedDagModel.remove_deleted_dags')
         # Since we don't want to store the code for the DAG defined in this file
-        self.patcher_dag_code = patch.object(settings, "STORE_DAG_CODE", False)
+        self.patcher_dag_code = patch('airflow.models.dag.DagCode.bulk_sync_to_db')
         self.patcher.start()
         self.patcher_dag_code.start()
 
@@ -2333,7 +2332,7 @@ class TestSchedulerJob(unittest.TestCase):
         self.scheduler_job._send_sla_callbacks_to_processor = mock.Mock()
 
         # Sync DAG into DB
-        with mock.patch.object(settings, "STORE_DAG_CODE", False):
+        with mock.patch('airflow.models.dag.DagCode.bulk_sync_to_db'):
             self.scheduler_job.dagbag.bag_dag(dag, root_dag=dag)
             self.scheduler_job.dagbag.sync_to_db()
 
@@ -2388,7 +2387,7 @@ class TestSchedulerJob(unittest.TestCase):
         self.scheduler_job._send_dag_callbacks_to_processor = mock.Mock()
 
         # Sync DAG into DB
-        with mock.patch.object(settings, "STORE_DAG_CODE", False):
+        with mock.patch('airflow.models.dag.DagCode.bulk_sync_to_db'):
             self.scheduler_job.dagbag.bag_dag(dag, root_dag=dag)
             self.scheduler_job.dagbag.sync_to_db()
 
@@ -4492,7 +4491,6 @@ class TestSchedulerJobQueriesCount(unittest.TestCase):
         ), conf_vars(
             {
                 ('scheduler', 'use_job_schedule'): 'True',
-                ('core', 'store_serialized_dags'): 'True',
                 # For longer running tests under heavy load, the min_serialized_dag_fetch_interval
                 # and min_serialized_dag_update_interval might kick-in and re-retrieve the record.
                 # This will increase the count of serliazied_dag.py.get() count.
