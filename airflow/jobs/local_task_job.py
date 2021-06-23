@@ -79,6 +79,7 @@ class LocalTaskJob(BaseJob):
         def signal_handler(signum, frame):
             """Setting kill signal handler"""
             self.log.error("Received SIGTERM. Terminating subprocesses")
+            # We need to refresh the task_instance to get the PID
             self.task_instance.refresh_from_db()
             os.kill(self.task_instance.pid, signum)
 
@@ -145,7 +146,7 @@ class LocalTaskJob(BaseJob):
             self.on_kill()
 
     def handle_task_exit(self, return_code: int) -> None:
-        """Handle case where self.task_runner exits by itself or received a SIGKILL"""
+        """Handle case where self.task_runner exits by itself or is externally killed"""
         self.log.info("Task exited with return code %s", return_code)
         self.task_instance.refresh_from_db()
         # We need to check for error file
