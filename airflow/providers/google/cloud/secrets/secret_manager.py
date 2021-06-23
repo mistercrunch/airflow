@@ -113,8 +113,8 @@ class CloudSecretManagerBackend(BaseSecretsBackend, LoggingMixin):
         except (DefaultCredentialsError, FileNotFoundError):
             log.exception(
                 'Unable to load credentials for GCP Secret Manager. '
-                'Make sure that you have properly configured the '
-                'keyfile path, dictionary, or Workload Identity correctly.'
+                'Make sure that the keyfile path, dictionary, or GOOGLE_APPLICATION_CREDENTIALS '
+                'environment variable is correct and properly configured.'
             )
 
         # In case project id provided
