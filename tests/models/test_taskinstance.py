@@ -1806,8 +1806,8 @@ class TestTaskInstance(unittest.TestCase):
     def test_generate_command_default_param(self):
         dag_id = 'test_generate_command_default_param'
         task_id = 'task'
-        assert_command = ['airflow', 'tasks', 'run', dag_id, task_id, DEFAULT_DATE.isoformat()]
-        generate_command = TI.generate_command(dag_id=dag_id, task_id=task_id, execution_date=DEFAULT_DATE)
+        assert_command = ['airflow', 'tasks', 'run', dag_id, task_id, 'run_1']
+        generate_command = TI.generate_command(dag_id=dag_id, task_id=task_id, run_id='run_1')
         assert assert_command == generate_command
 
     def test_generate_command_specific_param(self):
@@ -1819,11 +1819,11 @@ class TestTaskInstance(unittest.TestCase):
             'run',
             dag_id,
             task_id,
-            DEFAULT_DATE.isoformat(),
+            'run_1',
             '--mark-success',
         ]
         generate_command = TI.generate_command(
-            dag_id=dag_id, task_id=task_id, execution_date=DEFAULT_DATE, mark_success=True
+            dag_id=dag_id, task_id=task_id, run_id='run_1', mark_success=True
         )
         assert assert_command == generate_command
 
@@ -1852,8 +1852,14 @@ class TestTaskInstance(unittest.TestCase):
 
     @mock.patch.dict(os.environ, {"AIRFLOW_IS_K8S_EXECUTOR_POD": "True"})
     def test_get_rendered_k8s_spec(self):
-        with DAG('test_get_rendered_k8s_spec', start_date=DEFAULT_DATE):
+
+        with DAG('test_get_rendered_k8s_spec', start_date=DEFAULT_DATE) as dag:
             task = BashOperator(task_id='op1', bash_command="{{ task.task_id }}")
+            dag.create_dagrun(
+                execution_date=DEFAULT_DATE,
+                state=State.RUNNING,
+                run_type=DagRunType.SCHEDULED,
+            )
 
         ti = TI(task=task, execution_date=DEFAULT_DATE)
 
@@ -1886,7 +1892,7 @@ class TestTaskInstance(unittest.TestCase):
                             'run',
                             'test_get_rendered_k8s_spec',
                             'op1',
-                            '2016-01-01T00:00:00+00:00',
+                            'scheduled__2016-01-01T00:00:00+00:00',
                         ],
                         'image': ':',
                         'name': 'base',
@@ -1901,12 +1907,7 @@ class TestTaskInstance(unittest.TestCase):
             session.add(rtif)
             assert rtif.k8s_pod_yaml == expected_pod_spec
 
-        # Create new TI for the same Task
-        with DAG('test_get_rendered_k8s_spec', start_date=DEFAULT_DATE):
-            new_task = BashOperator(task_id='op1', bash_command="{{ task.task_id }}")
-
-        new_ti = TI(task=new_task, execution_date=DEFAULT_DATE)
-        pod_spec = new_ti.get_rendered_k8s_spec()
+        pod_spec = ti.get_rendered_k8s_spec()
 
         assert expected_pod_spec == pod_spec
 

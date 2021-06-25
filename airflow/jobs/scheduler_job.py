@@ -505,7 +505,7 @@ class SchedulerJob(BaseJob):  # pylint: disable=too-many-instance-attributes
             command = TI.generate_command(
                 ti.dag_id,
                 ti.task_id,
-                ti.execution_date,
+                ti.run_id,
                 local=True,
                 mark_success=False,
                 ignore_all_deps=False,
