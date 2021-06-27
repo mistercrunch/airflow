@@ -86,6 +86,7 @@ class BaseTaskRunner(LoggingMixin):
 
         # pylint: disable=consider-using-with
         self._error_file = NamedTemporaryFile(delete=True)
+        
         self._cfg_path = cfg_path
         self._command = (
             popen_prepend
@@ -133,6 +134,7 @@ class BaseTaskRunner(LoggingMixin):
 
         self.log.info("Running on host: %s", get_hostname())
         self.log.info('Running: %s', full_cmd)
+
         # pylint: disable=subprocess-popen-preexec-fn,consider-using-with
         proc = subprocess.Popen(
             full_cmd,
@@ -141,7 +143,7 @@ class BaseTaskRunner(LoggingMixin):
             universal_newlines=True,
             close_fds=True,
             env=os.environ.copy(),
-            preexec_fn=os.setsid,
+            start_new_session=True
         )
 
         # Start daemon thread to read subprocess logging output

@@ -21,6 +21,7 @@
 """Main executable module"""
 
 import os
+import sys
 
 import argcomplete
 
@@ -33,6 +34,15 @@ def main():
     if conf.get("core", "security") == 'kerberos':
         os.environ['KRB5CCNAME'] = conf.get('kerberos', 'ccache')
         os.environ['KRB5_KTNAME'] = conf.get('kerberos', 'keytab')
+
+    # if dags folder has to be set to configured value, make sure it is set properly (needed on Dask-Workers)
+    if 'force_configured_dags_folder' in conf['core'] and conf.get('core', 'force_configured_dags_folder'):
+        configured_dag_folder = conf.get('core', 'dags_folder')
+        cmd_args = sys.argv[1:]
+        for i in range(len(cmd_args)):
+            if cmd_args[i] == '--subdir':
+                dag_filename = os.path.split(cmd_args[i+1])[1]
+                sys.argv[i+2] = os.path.join(configured_dag_folder, dag_filename)
 
     parser = cli_parser.get_parser()
     argcomplete.autocomplete(parser)
