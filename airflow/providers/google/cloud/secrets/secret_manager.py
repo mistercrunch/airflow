@@ -32,7 +32,7 @@ from airflow.providers.google.cloud.utils.credentials_provider import get_creden
 from airflow.secrets import BaseSecretsBackend
 from airflow.utils.log.logging_mixin import LoggingMixin
 
-log = logging.getLogger()
+log = logging.getLogger(__name__)
 
 SECRET_ID_PATTERN = r"^[a-zA-Z0-9-_]*$"
 
