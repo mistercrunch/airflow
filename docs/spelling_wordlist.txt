@@ -673,6 +673,7 @@ ec
 ecb
 editorconfig
 eg
+eks
 elasticsearch
 emr
 enableAutoScale
