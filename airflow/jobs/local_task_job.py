@@ -16,7 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-import os
 import signal
 from typing import Optional
 
@@ -79,9 +78,13 @@ class LocalTaskJob(BaseJob):
         def signal_handler(signum, frame):
             """Setting kill signal handler"""
             self.log.error("Received SIGTERM. Terminating subprocesses")
-            # We need to refresh the task_instance to get the PID
-            self.task_instance.refresh_from_db()
-            os.kill(self.task_instance.pid, signum)
+            self.on_kill()
+            if self.task_instance.state not in State.finished:
+                self.task_instance.set_state(State.FAILED)
+            self.task_instance._run_finished_callback(  # pylint: disable=protected-access
+                error="task received sigterm"
+            )
+            raise AirflowException("LocalTaskJob received SIGTERM signal")
 
         signal.signal(signal.SIGTERM, signal_handler)
 

@@ -567,10 +567,9 @@ class TestLocalTaskJob(unittest.TestCase):
         assert task_terminated_externally.value == 1
         assert not process.is_alive()
 
-    @parameterized.expand([(signal.SIGKILL,), (signal.SIGTERM,)])
-    def test_task_sigkill_sigterm_calls_on_failure_callback(self, sigtype):
+    def test_task_sigkill_calls_on_failure_callback(self):
         """
-        Test that ensures that when a task is killed with sigterm or sigkill
+        Test that ensures that when a task is killed with sigkill
         on_failure_callback gets executed
         """
         # use shared memory value so we can properly track value change even if
@@ -582,9 +581,9 @@ class TestLocalTaskJob(unittest.TestCase):
         def failure_callback(context):
             with shared_mem_lock:
                 failure_callback_called.value += 1
-            assert context['dag_run'].dag_id == 'test_mark_failure'
+            assert context['dag_run'].dag_id == 'test_send_sigkill'
 
-        dag = DAG(dag_id='test_mark_failure', start_date=DEFAULT_DATE, default_args={'owner': 'owner1'})
+        dag = DAG(dag_id='test_send_sigkill', start_date=DEFAULT_DATE, default_args={'owner': 'owner1'})
 
         def task_function(ti):
             # pylint: disable=unused-argument
@@ -620,11 +619,69 @@ class TestLocalTaskJob(unittest.TestCase):
         process = multiprocessing.Process(target=job1.run)
         process.start()
         time.sleep(0.3)
-        if sigtype == signal.SIGTERM:
-            # We send sigterm here otherwise the python_callable
-            # function will kill ti.pid and not process.pid which
-            # will never be caught
-            os.kill(process.pid, sigtype)
+        process.join(timeout=10)
+        assert failure_callback_called.value == 1
+        assert task_terminated_externally.value == 1
+        assert not process.is_alive()
+
+    def test_process_sigterm_calls_on_failure_callback(self):
+        """
+        Test that ensures that when a task is killed with sigkill
+        on_failure_callback gets executed
+        """
+        # use shared memory value so we can properly track value change even if
+        # it's been updated across processes.
+        failure_callback_called = Value('i', 0)
+        task_terminated_externally = Value('i', 1)
+        shared_mem_lock = Lock()
+
+        def failure_callback(context):
+            with shared_mem_lock:
+                failure_callback_called.value += 1
+            assert context['dag_run'].dag_id == 'test_mark_failure'
+
+        dag = DAG(dag_id='test_mark_failure', start_date=DEFAULT_DATE, default_args={'owner': 'owner1'})
+
+        def task_function(ti):
+            # pylint: disable=unused-argument
+            time.sleep(1)
+            # This should not happen -- the state change should be noticed and the task should get killed
+            with shared_mem_lock:
+                task_terminated_externally.value = 0
+
+        task = PythonOperator(
+            task_id='test_on_failure',
+            python_callable=task_function,
+            on_failure_callback=failure_callback,
+            dag=dag,
+        )
+
+        session = settings.Session()
+
+        dag.clear()
+        dag.create_dagrun(
+            run_id="test",
+            state=State.RUNNING,
+            execution_date=DEFAULT_DATE,
+            start_date=DEFAULT_DATE,
+            session=session,
+        )
+        ti = TaskInstance(task=task, execution_date=DEFAULT_DATE)
+        ti.refresh_from_db()
+        job1 = LocalTaskJob(task_instance=ti, ignore_ti_state=True, executor=SequentialExecutor())
+        job1.task_runner = StandardTaskRunner(job1)
+        job1.task_runner.start()
+        settings.engine.dispose()
+        process = multiprocessing.Process(target=job1.run)
+        process.start()
+        for _ in range(0, 25):
+            ti.refresh_from_db()
+            if ti.state == State.RUNNING:
+                break
+            time.sleep(0.2)
+        assert ti.pid
+        os.kill(process.pid, signal.SIGTERM)
+        ti.refresh_from_db()
         process.join(timeout=10)
         assert failure_callback_called.value == 1
         assert task_terminated_externally.value == 1
@@ -732,8 +789,7 @@ class TestLocalTaskJob(unittest.TestCase):
             if scheduler_job.processor_agent:
                 scheduler_job.processor_agent.end()
 
-    @parameterized.expand([(signal.SIGKILL,), (signal.SIGTERM,)])
-    def test_task_sigkill_sigterm_works_with_retries(self, sigtype):
+    def test_task_sigkill_works_with_retries(self):
         """
         Test that ensures that task runner retries tasks when they receive sigkill or sigterm
         """
@@ -786,11 +842,6 @@ class TestLocalTaskJob(unittest.TestCase):
         process = multiprocessing.Process(target=job1.run)
         process.start()
         time.sleep(0.4)
-        if sigtype == signal.SIGTERM:
-            # We send sigterm here otherwise the python_callable
-            # function will kill ti.pid and not process.pid which
-            # will never be caught
-            os.kill(process.pid, sigtype)
         process.join()
         ti.refresh_from_db()
         assert ti.state == State.UP_FOR_RETRY
