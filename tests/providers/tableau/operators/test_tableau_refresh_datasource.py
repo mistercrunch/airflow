@@ -21,65 +21,65 @@ from unittest.mock import Mock, patch
 import pytest
 
 from airflow.exceptions import AirflowException
-from airflow.providers.tableau.operators.tableau_refresh_workbook import TableauRefreshWorkbookOperator
+from airflow.providers.tableau.operators.tableau_refresh_datasource import TableauRefreshDatasourceOperator
 
 
-class TestTableauRefreshWorkbookOperator(unittest.TestCase):
+class TestTableauRefreshDatasourceOperator(unittest.TestCase):
     """
-    Test class for TableauRefreshWorkbookOperator
+    Test class for TableauRefreshDatasourceOperator
     """
 
     def setUp(self):
         """
         setup
         """
-        self.mocked_workbooks = []
+        self.mock_datasources = []
         for i in range(3):
-            mock_workbook = Mock()
-            mock_workbook.id = i
-            mock_workbook.name = f'wb_{i}'
-            self.mocked_workbooks.append(mock_workbook)
+            mock_datasource = Mock()
+            mock_datasource.id = i
+            mock_datasource.name = f'ds_{i}'
+            self.mock_datasources.append(mock_datasource)
         self.kwargs = {'site_id': 'test_site', 'task_id': 'task', 'dag': None}
 
-    @patch('airflow.providers.tableau.operators.tableau_refresh_workbook.TableauHook')
+    @patch('airflow.providers.tableau.operators.tableau_refresh_datasource.TableauHook')
     def test_execute(self, mock_tableau_hook):
         """
         Test Execute
         """
-        mock_tableau_hook.get_all = Mock(return_value=self.mocked_workbooks)
+        mock_tableau_hook.get_all = Mock(return_value=self.mock_datasources)
         mock_tableau_hook.return_value.__enter__ = Mock(return_value=mock_tableau_hook)
-        operator = TableauRefreshWorkbookOperator(blocking=False, workbook_name='wb_2', **self.kwargs)
+        operator = TableauRefreshDatasourceOperator(blocking=False, datasource_name='ds_2', **self.kwargs)
 
         job_id = operator.execute(context={})
 
-        mock_tableau_hook.server.workbooks.refresh.assert_called_once_with(2)
-        assert mock_tableau_hook.server.workbooks.refresh.return_value.id == job_id
+        mock_tableau_hook.server.datasources.refresh.assert_called_once_with(2)
+        assert mock_tableau_hook.server.datasources.refresh.return_value.id == job_id
 
-    @patch('airflow.providers.tableau.operators.tableau_refresh_workbook.TableauHook')
+    @patch('airflow.providers.tableau.operators.tableau_refresh_datasource.TableauHook')
     def test_execute_blocking(self, mock_tableau_hook):
         """
         Test execute blocking
         """
-        mock_tableau_hook.get_all = Mock(return_value=self.mocked_workbooks)
+        mock_tableau_hook.get_all = Mock(return_value=self.mock_datasources)
         mock_tableau_hook.return_value.__enter__ = Mock(return_value=mock_tableau_hook)
-        operator = TableauRefreshWorkbookOperator(workbook_name='wb_2', **self.kwargs)
+        operator = TableauRefreshDatasourceOperator(datasource_name='ds_2', **self.kwargs)
 
         job_id = operator.execute(context={})
 
-        mock_tableau_hook.server.workbooks.refresh.assert_called_once_with(2)
-        assert mock_tableau_hook.server.workbooks.refresh.return_value.id == job_id
+        mock_tableau_hook.server.datasources.refresh.assert_called_once_with(2)
+        assert mock_tableau_hook.server.datasources.refresh.return_value.id == job_id
         mock_tableau_hook.waiting_until_succeeded.assert_called_once_with(
             job_id=job_id,
         )
 
-    @patch('airflow.providers.tableau.operators.tableau_refresh_workbook.TableauHook')
-    def test_execute_missing_workbook(self, mock_tableau_hook):
+    @patch('airflow.providers.tableau.operators.tableau_refresh_datasource.TableauHook')
+    def test_execute_missing_datasource(self, mock_tableau_hook):
         """
-        Test execute missing workbook
+        Test execute missing datasource
         """
-        mock_tableau_hook.get_all = Mock(return_value=self.mocked_workbooks)
+        mock_tableau_hook.get_all = Mock(return_value=self.mock_datasources)
         mock_tableau_hook.return_value.__enter__ = Mock(return_value=mock_tableau_hook)
-        operator = TableauRefreshWorkbookOperator(workbook_name='test', **self.kwargs)
+        operator = TableauRefreshDatasourceOperator(datasource_name='test', **self.kwargs)
 
         with pytest.raises(AirflowException):
             operator.execute({})

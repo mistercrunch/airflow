@@ -16,41 +16,41 @@
 # under the License.
 from typing import Optional
 
-from tableauserverclient import WorkbookItem
+from tableauserverclient import DatasourceItem
 
 from airflow.exceptions import AirflowException
 from airflow.models import BaseOperator
 from airflow.providers.tableau.hooks.tableau import TableauHook, TableauJobFailedException
 
 
-class TableauRefreshWorkbookOperator(BaseOperator):
+class TableauRefreshDatasourceOperator(BaseOperator):
     """
-    Refreshes a Tableau Workbook/Extract
+    Refreshes a Tableau Datasource
 
-    .. seealso:: https://tableau.github.io/server-client-python/docs/api-ref#workbooks
+    .. seealso:: https://tableau.github.io/server-client-python/docs/api-ref#data-sources
 
-    :param workbook_name: The name of the workbook to refresh.
-    :type workbook_name: str
-    :param site_id: The id of the site where the workbook belongs to.
+    :param datasource_name: The name of the datasource to refresh.
+    :type datasource_name: str
+    :param site_id: The id of the site where the datasource belongs to.
     :type site_id: Optional[str]
     :param blocking: By default the extract refresh will be blocking means it will wait until it has finished.
     :type blocking: bool
-    :param tableau_conn_id: The :ref:`Tableau Connection id <howto/connection:tableau>`
-        containing the credentials to authenticate to the Tableau Server.
+    :param tableau_conn_id: The Tableau Connection id containing the credentials
+        to authenticate to the Tableau Server.
     :type tableau_conn_id: str
     """
 
     def __init__(
         self,
         *,
-        workbook_name: str,
+        datasource_name: str,
         site_id: Optional[str] = None,
         blocking: bool = True,
         tableau_conn_id: str = 'tableau_default',
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
-        self.workbook_name = workbook_name
+        self.datasource_name = datasource_name
         self.site_id = site_id
         self.blocking = blocking
         self.tableau_conn_id = tableau_conn_id
@@ -65,25 +65,25 @@ class TableauRefreshWorkbookOperator(BaseOperator):
         :rtype: str
         """
         with TableauHook(self.site_id, self.tableau_conn_id) as tableau_hook:
-            workbook = self._get_workbook_by_name(tableau_hook)
+            datasource = self._get_datasource_by_name(tableau_hook)
 
-            job_id = self._refresh_workbook(tableau_hook, workbook.id)
+            job_id = self._refresh_datasource(tableau_hook, datasource.id)
             if self.blocking:
                 if not tableau_hook.waiting_until_succeeded(job_id=job_id):
-                    raise TableauJobFailedException('The Tableau Refresh Workbook Job failed!')
+                    raise TableauJobFailedException('The Tableau Refresh Datasource Job failed!')
 
-            self.log.info('Workbook %s has been successfully refreshed.', self.workbook_name)
+                self.log.info('Datasource %s has been successfully refreshed.', self.datasource_name)
             return job_id
 
-    def _get_workbook_by_name(self, tableau_hook: TableauHook) -> WorkbookItem:
-        for workbook in tableau_hook.get_all(resource_name='workbooks'):
-            if workbook.name == self.workbook_name:
-                self.log.info('Found matching workbook with id %s', workbook.id)
-                return workbook
+    def _get_datasource_by_name(self, tableau_hook: TableauHook) -> DatasourceItem:
+        for datasource in tableau_hook.get_all(resource_name='datasources'):
+            if datasource.name == self.datasource_name:
+                self.log.info('Found matching datasource with id %s', datasource.id)
+                return datasource
 
-        raise AirflowException(f'Workbook {self.workbook_name} not found!')
+        raise AirflowException(f'Datasource {self.datasource_name} not found!')
 
-    def _refresh_workbook(self, tableau_hook: TableauHook, workbook_id: str) -> str:
-        job = tableau_hook.server.workbooks.refresh(workbook_id)
-        self.log.info('Refreshing Workbook %s...', self.workbook_name)
+    def _refresh_datasource(self, tableau_hook: TableauHook, datasource_id: str) -> str:
+        job = tableau_hook.server.datasources.refresh(datasource_id)
+        self.log.info('Refreshing Datasource %s...', self.datasource_name)
         return job.id
