@@ -1,0 +1,12 @@
+# Reference: https://www.gitpod.io/docs/references/gitpod-yml
+# Docs: https://www.gitpod.io/docs/config-gitpod-file/
+
+tasks:
+  - init: ./breeze -y
+    
+  - openMode: split-right
+    command: echo for running integration test with breeze
+# Ports to expose on workspace startup
+ports:
+  - port: 8000
+    onOpen: open-preview
