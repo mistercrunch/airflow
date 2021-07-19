@@ -201,6 +201,7 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
 
     def execute(self, context: Dict) -> Any:
         started_at = None
+        try_number = 1
 
         if self.reschedule:
 
@@ -228,7 +229,6 @@ class BaseSensorOperator(BaseOperator, SkipMixin):
                 nonlocal started_at
                 return time.monotonic() - started_at
 
-        try_number = 1
         log_dag_id = self.dag.dag_id if self.has_dag() else ""
 
         while not self.poke(context):
