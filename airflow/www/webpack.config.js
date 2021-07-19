@@ -37,7 +37,7 @@ const BUILD_DIR = path.resolve(__dirname, './static/dist');
 
 const config = {
   entry: {
-    airflowDefaultTheme: `${CSS_DIR}/bootstrap-theme.css`,
+    airflowBootstrapTheme: `${CSS_DIR}/airflow_bootstrap_theme.css`,
     connectionForm: `${JS_DIR}/connection_form.js`,
     dag: `${JS_DIR}/dag.js`,
     dagCode: `${JS_DIR}/dag_code.js`,
