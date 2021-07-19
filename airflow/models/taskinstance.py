@@ -939,9 +939,9 @@ class TaskInstance(Base, LoggingMixin):
         delay = self.task.retry_delay
         if self.task.retry_exponential_backoff:
             # If the min_backoff calculation is below 1, it will be converted to 0 via int. Thus,
-            # we must round up prior to converting to an int, otherwise a divide by zero error
-            # will occur in the modded_hash calculation.
-            min_backoff = int(math.ceil(delay.total_seconds() * (2 ** (self.try_number - 2))))
+            # we must impose a lower bound of 1 prior to converting to an int, otherwise a divide
+            # by zero error will occur in the modded_hash calculation.
+            min_backoff = int(max(1, delay.total_seconds() * (2 ** (self.try_number - 2))))
             # deterministic per task instance
             ti_hash = int(
                 hashlib.sha1(
