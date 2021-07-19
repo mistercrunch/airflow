@@ -65,7 +65,7 @@ from airflow.utils.session import create_session, provide_session
 from airflow.utils.state import State
 from airflow.utils.types import DagRunType
 from airflow.version import version
-from tests.models import DEFAULT_DATE
+from tests.models import DEFAULT_DATE, TEST_DAGS_FOLDER
 from tests.test_utils import db
 from tests.test_utils.asserts import assert_queries_count
 from tests.test_utils.config import conf_vars
@@ -1854,6 +1854,26 @@ class TestTaskInstance(unittest.TestCase):
         assert call(f'ti.start.{dag.dag_id}.{op.task_id}') in stats_mock.mock_calls
         assert stats_mock.call_count == 5
 
+    def test_command_as_list(self):
+        dag = DAG(
+            'test_dag',
+            start_date=DEFAULT_DATE,
+            end_date=DEFAULT_DATE + datetime.timedelta(days=10),
+        )
+        dag.fileloc = os.path.join(TEST_DAGS_FOLDER, 'x.py')
+        op = DummyOperator(task_id='dummy_op', dag=dag)
+        ti = TI(task=op, execution_date=DEFAULT_DATE)
+        assert ti.command_as_list() == [
+            'airflow',
+            'tasks',
+            'run',
+            dag.dag_id,
+            op.task_id,
+            DEFAULT_DATE.isoformat(),
+            '--subdir',
+            'DAGS_FOLDER/x.py',
+        ]
+
     def test_generate_command_default_param(self):
         dag_id = 'test_generate_command_default_param'
         task_id = 'task'
@@ -1880,8 +1900,9 @@ class TestTaskInstance(unittest.TestCase):
 
     def test_get_rendered_template_fields(self):
 
-        with DAG('test-dag', start_date=DEFAULT_DATE):
+        with DAG('test-dag', start_date=DEFAULT_DATE) as dag:
             task = BashOperator(task_id='op1', bash_command="{{ task.task_id }}")
+        dag.fileloc = TEST_DAGS_FOLDER + '/test_get_k8s_pod_yaml.py'
 
         ti = TI(task=task, execution_date=DEFAULT_DATE)
 

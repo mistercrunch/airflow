@@ -235,12 +235,20 @@ class DAG(LoggingMixin):
         'parent_dag',
         'start_date',
         'schedule_interval',
-        'full_filepath',
+        'fileloc',
         'template_searchpath',
         'last_loaded',
     }
 
     __serialized_fields: Optional[FrozenSet[str]] = None
+
+    fileloc: str
+    """
+    File path that needs to be imported to load this DAG or subdag.
+
+    This may not be an actual file on disk in the case when this DAG is loaded
+    from a ZIP file or other DAG distribution format.
+    """
 
     def __init__(
         self,
@@ -285,10 +293,16 @@ class DAG(LoggingMixin):
             self.params.update(self.default_args['params'])
             del self.default_args['params']
 
+        if full_filepath:
+            warnings.warn(
+                "Passing full_filepath to DAG() is deprecated and has no effect",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         validate_key(dag_id)
 
         self._dag_id = dag_id
-        self._full_filepath = full_filepath if full_filepath else ''
         if concurrency and not max_active_tasks:
             # TODO: Remove in Airflow 3.0
             warnings.warn(
@@ -654,11 +668,22 @@ class DAG(LoggingMixin):
 
     @property
     def full_filepath(self) -> str:
-        return self._full_filepath
+        """:meta private:"""
+        warnings.warn(
+            "DAG.full_filepath is deprecated in favour of fileloc",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fileloc
 
     @full_filepath.setter
     def full_filepath(self, value) -> None:
-        self._full_filepath = value
+        warnings.warn(
+            "DAG.full_filepath is deprecated in favour of fileloc",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.fileloc = value
 
     @property
     def concurrency(self) -> int:
@@ -734,15 +759,22 @@ class DAG(LoggingMixin):
 
     @property
     def filepath(self) -> str:
-        """File location of where the dag object is instantiated"""
-        fn = self.full_filepath.replace(settings.DAGS_FOLDER + '/', '')
-        fn = fn.replace(os.path.dirname(__file__) + '/', '')
+        """:meta private:"""
+        warnings.warn(
+            "filepath is deprecated, use relative_fileloc instead", DeprecationWarning, stacklevel=2
+        )
+        return self.relative_fileloc
+
+    @property
+    def relative_fileloc(self) -> str:
+        """File location of the importable dag 'file' relative to the configured DAGs folder."""
+        fn = self.fileloc.replace(settings.DAGS_FOLDER + '/', '')
         return fn
 
     @property
     def folder(self) -> str:
         """Folder location of where the DAG object is instantiated."""
-        return os.path.dirname(self.full_filepath)
+        return os.path.dirname(self.fileloc)
 
     @property
     def owner(self) -> str:
@@ -2115,15 +2147,18 @@ class DAG(LoggingMixin):
             .group_by(DagRun.dag_id)
             .all()
         )
+        filelocs = []
 
         for orm_dag in sorted(orm_dags, key=lambda d: d.dag_id):
             dag = dag_by_ids[orm_dag.dag_id]
             if dag.is_subdag:
+                filelocs.append(dag.fileloc)
                 orm_dag.is_subdag = True
                 orm_dag.fileloc = dag.parent_dag.fileloc  # type: ignore
                 orm_dag.root_dag_id = dag.parent_dag.dag_id  # type: ignore
                 orm_dag.owners = dag.parent_dag.owner  # type: ignore
             else:
+                filelocs.append(dag.fileloc)
                 orm_dag.is_subdag = False
                 orm_dag.fileloc = dag.fileloc
                 orm_dag.owners = dag.owner
@@ -2154,7 +2189,7 @@ class DAG(LoggingMixin):
                         session.add(dag_tag_orm)
 
         if settings.STORE_DAG_CODE:
-            DagCode.bulk_sync_to_db([dag.fileloc for dag in orm_dags])
+            DagCode.bulk_sync_to_db(filelocs)
 
         # Issue SQL/finish "Unit of Work", but let @provide_session commit (or if passed a session, let caller
         # decide when to commit
@@ -2271,7 +2306,6 @@ class DAG(LoggingMixin):
                 '_old_context_manager_dags',
                 'safe_dag_id',
                 'last_loaded',
-                '_full_filepath',
                 'user_defined_filters',
                 'user_defined_macros',
                 'partial',
@@ -2329,7 +2363,7 @@ class DagModel(Base):
     These items are stored in the database for state related information
     """
     dag_id = Column(String(ID_LEN), primary_key=True)
-    root_dag_id = Column(String(ID_LEN))
+    root_dag_id = Column(String(ID_LEN), ForeignKey("dag.dag_id"))
     # A DAG can be paused from the UI / DB
     # Set this default value of is_paused based on a configuration value!
     is_paused_at_creation = conf.getboolean('core', 'dags_are_paused_at_creation')
@@ -2378,6 +2412,8 @@ class DagModel(Base):
         Index('idx_root_dag_id', root_dag_id, unique=False),
         Index('idx_next_dagrun_create_after', next_dagrun_create_after, unique=False),
     )
+
+    parent_dag = relationship("DagModel", remote_side=[dag_id])
 
     NUM_DAGS_PER_DAGRUN_QUERY = conf.getint('scheduler', 'max_dagruns_to_create_per_loop', fallback=10)
 
@@ -2451,6 +2487,14 @@ class DagModel(Base):
     @property
     def safe_dag_id(self):
         return self.dag_id.replace('.', '__dot__')
+
+    @property
+    def relative_fileloc(self) -> str:
+        """File location of the importable dag 'file' relative to the configured DAGs folder."""
+        if self.fileloc is None:
+            return None
+        fn = self.fileloc.replace(settings.DAGS_FOLDER + '/', '')
+        return fn
 
     @provide_session
     def set_is_paused(self, is_paused: bool, including_subdags: bool = True, session=None) -> None:
