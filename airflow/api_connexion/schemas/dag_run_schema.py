@@ -84,6 +84,13 @@ class DAGRunCollection(NamedTuple):
     dag_runs: List[DagRun]
     total_entries: int
 
+class DAGStateSchema(Schema):
+    """Schema for setting DAG State"""
+    class Meta:
+        """Meta"""
+
+        model = DagRun
+    state = DagStateField(dump_only=False)
 
 class DAGRunCollectionSchema(Schema):
     """DAGRun Collection schema"""
@@ -116,3 +123,4 @@ class DagRunsBatchFormSchema(Schema):
 dagrun_schema = DAGRunSchema()
 dagrun_collection_schema = DAGRunCollectionSchema()
 dagruns_batch_form_schema = DagRunsBatchFormSchema()
+dagrun_set_state_schema = DAGStateSchema()

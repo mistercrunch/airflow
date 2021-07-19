@@ -141,6 +141,18 @@ class TestDagRunEndpoint:
                 session.add_all(dags)
         return dag_runs
 
+class TestSetDagRunState(TestDagRunEndpoint):
+    def test_should_respond_204(self, session):
+        session.add_all(self._create_test_dag_run())
+        session.commit()
+        response = self.client.patch(
+                "api/v1/dags/TEST_DAG_ID/dagRuns/TEST_DAG_RUN_ID_1",
+                json={"state": "success"},
+                environ_overrides={'REMOTE_USER': "test"}
+        )
+        assert response.status_code == 204
+        #assert state of dagrun hsa been changed
+
 
 class TestDeleteDagRun(TestDagRunEndpoint):
     def test_should_respond_204(self, session):

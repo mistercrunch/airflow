@@ -14,6 +14,8 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+#TODO: uncomment these three to see if it impacts anything
 from flask import current_app, g, request
 from marshmallow import ValidationError
 from sqlalchemy import or_
@@ -27,11 +29,13 @@ from airflow.api_connexion.schemas.dag_run_schema import (
     dagrun_collection_schema,
     dagrun_schema,
     dagruns_batch_form_schema,
+    dagrun_set_state_schema
 )
 from airflow.models import DagModel, DagRun
 from airflow.security import permissions
 from airflow.utils.session import provide_session
 from airflow.utils.types import DagRunType
+from airflow.utils.state import State
 
 
 @security.requires_access(
@@ -265,3 +269,40 @@ def post_dag_run(dag_id, session):
     raise AlreadyExists(
         detail=f"DAGRun with DAG ID: '{dag_id}' and DAGRun ID: '{post_body['run_id']}' already exists"
     )
+
+#TODO: see if these are the right permissions
+@security.requires_access(
+    [
+        (permissions.ACTION_CAN_EDIT, permissions.RESOURCE_DAG),
+        (permissions.ACTION_CAN_EDIT, permissions.RESOURCE_DAG_RUN),
+    ]
+)
+
+#REMOVE THIS LINE
+#from marshmallow import fields, validate
+
+
+@provide_session
+def patch_set_dag_run_state(dag_id, dag_run_id, session):
+    """Update the state of a DAG Run."""
+    #body = request.get_json()
+    try:
+        data = dagrun_set_state_schema.load(request.json)#, session=session)
+    except ValidationError as err:
+        print(err)
+        print(request.get_json(), request.json)
+
+        raise BadRequest(detail=str(err))
+
+    dag_run = session.query(DagRun).filter(DagRun.dag_id == dag_id, DagRun.run_id == dag_run_id).one_or_none()
+    if dag_run is None:
+        raise NotFound(
+            "DAGRun not found",
+            detail=f"DAGRun with DAG ID: '{dag_id}' and DagRun ID: '{dag_run_id}' not found",
+        )
+    state_string = {"success":State.SUCCESS, "failed":State.FAILED, "running":State.RUNNING}
+    if data.get("state"):
+        state = data["state"]
+    if state.lower() in state_string.keys():
+        dag_run.set_state(state_string[state.lower()]) #convert "state" in body to state.SUCCESS, FAILED, RUNNING
+    return NoContent, 204
