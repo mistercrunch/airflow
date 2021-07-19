@@ -160,6 +160,14 @@ class KubernetesPodOperator(BaseOperator):
     :param termination_grace_period: Termination grace period if task killed in UI,
         defaults to kubernetes default
     :type termination_grace_period: int
+    :param xcom_sidecar_container: Definition of custom sidecar container. Useful when
+        you need to customize some parts of a default one (like container image poitning
+        to private repository). It is a good idea to define this as a modification of
+        airflow.providers.cncf.kubernetes.utils.xcom_sidecar.PodDefaults.SIDECAR_CONTAINER.
+        If no xcom-sidecar_container is provided then PodDefaults.SIDECAR_CONTAINER will
+        be used.
+        defaults to None
+    :type xcom_sidecar_container: Optional[k8s.V1Container]
     """
 
     template_fields: Iterable[str] = (
@@ -220,6 +228,7 @@ class KubernetesPodOperator(BaseOperator):
         pod_runtime_info_envs: List[PodRuntimeInfoEnv] = None,
         termination_grace_period: Optional[int] = None,
         configmaps: Optional[str] = None,
+        xcom_sidecar_container: Optional[k8s.V1Container] = None,
         **kwargs,
     ) -> None:
         if kwargs.get('xcom_push') is not None:
@@ -227,6 +236,7 @@ class KubernetesPodOperator(BaseOperator):
         super().__init__(resources=None, **kwargs)
 
         self.do_xcom_push = do_xcom_push
+        self.xcom_sidecar_container = xcom_sidecar_container
         self.image = image
         self.namespace = namespace
         self.cmds = cmds or []
@@ -488,7 +498,9 @@ class KubernetesPodOperator(BaseOperator):
             pod = secret.attach_to_pod(pod)
         if self.do_xcom_push:
             self.log.debug("Adding xcom sidecar to task %s", self.task_id)
-            pod = xcom_sidecar.add_xcom_sidecar(pod)
+            pod = xcom_sidecar.add_xcom_sidecar(pod,
+                                                self.xcom_sidecar_container
+                                                or xcom_sidecar.PodDefaults.SIDECAR_CONTAINER)
         return pod
 
     def create_new_pod_for_operator(self, labels, launcher) -> Tuple[State, k8s.V1Pod, Optional[str]]:
