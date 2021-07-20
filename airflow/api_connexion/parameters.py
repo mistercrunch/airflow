@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 from functools import wraps
-from typing import Callable, Dict, TypeVar, cast
+from typing import Callable, Dict, Sequence, TypeVar, cast
 
 from pendulum.parsing import ParserError
-from sqlalchemy import text
+from sqlalchemy import Column, text
+from sqlalchemy.orm import Query
 
 from airflow.api_connexion.exceptions import BadRequest
 from airflow.configuration import conf
@@ -87,6 +88,13 @@ def format_parameters(params_formatters: Dict[str, Callable[..., bool]]) -> Call
         return cast(T, wrapped_function)
 
     return format_parameters_decorator
+
+
+def apply_array_filter(query: Query, key: Column, values: Sequence[str]) -> Query:
+    """Apply a filter to a query."""
+    if values is not None:
+        query = query.filter(key.in_(values))
+    return query
 
 
 def apply_sorting(query, order_by, to_replace=None, allowed_attrs=None):
