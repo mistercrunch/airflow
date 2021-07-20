@@ -394,7 +394,7 @@ class GoogleDisplayVideo360RunReportOperator(BaseOperator):
             self.report_id,
             self.params,
         )
-        hook.run_query(query_id=self.report_id, params=self.params)
+        hook.run_query(query_id=self.report_id, params={k: v() for k, v in self.params.items()})
 
 
 class GoogleDisplayVideo360DownloadLineItemsOperator(BaseOperator):
