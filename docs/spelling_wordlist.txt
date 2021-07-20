@@ -168,6 +168,7 @@ Http
 HttpError
 HttpRequest
 IdP
+Influxdb
 ImageAnnotatorClient
 Imap
 InsecureClient
@@ -820,6 +821,7 @@ impyla
 incompliancies
 inexhaustive
 infile
+influxdb
 infoType
 infoTypes
 ini

@@ -348,6 +348,9 @@ http_provider = [
     #        not with the `install-requires` dependency.
     'apache-airflow-providers-http',
 ]
+influxdb = [
+    'influxdb-client>=1.19.0'
+]
 jdbc = [
     'jaydebeapi>=1.1.1',
 ]
@@ -567,6 +570,7 @@ PROVIDERS_REQUIREMENTS: Dict[str, List[str]] = {
     'imap': [],
     'jdbc': jdbc,
     'jenkins': jenkins,
+    'influxdb': influxdb,
     'jira': jira,
     'microsoft.azure': azure,
     'microsoft.mssql': mssql,
@@ -735,6 +739,7 @@ ALL_DB_PROVIDERS = [
     'apache.pinot',
     'cloudant',
     'exasol',
+    'influxdb',
     'microsoft.mssql',
     'mongo',
     'mysql',
