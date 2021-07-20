@@ -16,10 +16,12 @@
 # under the License.
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+from parameterized import parameterized
 
 from airflow import configuration, models
-from airflow.providers.tableau.hooks.tableau import TableauHook
+from airflow.providers.tableau.hooks.tableau import TableauHook, TableauJobFinishCode
 from airflow.utils import db
 
 
@@ -189,3 +191,91 @@ class TestTableauHook(unittest.TestCase):
             assert jobs == mock_pager.return_value
 
         mock_pager.assert_called_once_with(mock_server.return_value.jobs.get)
+
+    @parameterized.expand(
+        [
+            (0, TableauJobFinishCode.SUCCESS),
+            (1, TableauJobFinishCode.ERROR),
+            (2, TableauJobFinishCode.CANCELED),
+        ]
+    )
+    @patch('airflow.providers.tableau.hooks.tableau.Server')
+    def test_get_job_status(self, finish_code, expected_status, mock_tableau_server):
+        """
+        Test get job status
+        """
+        mock_tableau_server.jobs.get_by_id.return_value.finish_code = finish_code
+        with TableauHook(tableau_conn_id='tableau_test_password') as tableau_hook:
+            tableau_hook.server = mock_tableau_server
+            jobs_status = tableau_hook.get_job_status(job_id='j1')
+            assert jobs_status == expected_status
+
+    @patch('airflow.providers.tableau.hooks.tableau.Server')
+    def test_wait_for_state(self, mock_tableau_server):
+        """
+        Test wait_for_state
+        """
+        # Test SUCCESS Positive
+        with TableauHook(tableau_conn_id='tableau_test_password') as tableau_hook:
+            tableau_hook.get_job_status = MagicMock(
+                name='get_job_status',
+                side_effect=[TableauJobFinishCode.PENDING, TableauJobFinishCode.SUCCESS],
+            )
+            assert tableau_hook.wait_for_state(
+                job_id='j1', target_state=TableauJobFinishCode.SUCCESS, check_interval=1
+            )
+
+        # Test SUCCESS Negative
+        with TableauHook(tableau_conn_id='tableau_test_password') as tableau_hook:
+            tableau_hook.get_job_status = MagicMock(
+                name='get_job_status',
+                side_effect=[
+                    TableauJobFinishCode.PENDING,
+                    TableauJobFinishCode.PENDING,
+                    TableauJobFinishCode.ERROR,
+                ],
+            )
+            assert not tableau_hook.wait_for_state(
+                job_id='j1', target_state=TableauJobFinishCode.SUCCESS, check_interval=1
+            )
+
+        # Test ERROR Positive
+        with TableauHook(tableau_conn_id='tableau_test_password') as tableau_hook:
+            tableau_hook.get_job_status = MagicMock(
+                name='get_job_status',
+                side_effect=[
+                    TableauJobFinishCode.PENDING,
+                    TableauJobFinishCode.PENDING,
+                    TableauJobFinishCode.ERROR,
+                ],
+            )
+            assert tableau_hook.wait_for_state(
+                job_id='j1', target_state=TableauJobFinishCode.ERROR, check_interval=1
+            )
+
+        # Test CANCELLED Positive
+        with TableauHook(tableau_conn_id='tableau_test_password') as tableau_hook:
+            tableau_hook.get_job_status = MagicMock(
+                name='get_job_status',
+                side_effect=[
+                    TableauJobFinishCode.PENDING,
+                    TableauJobFinishCode.PENDING,
+                    TableauJobFinishCode.CANCELED,
+                ],
+            )
+            assert tableau_hook.wait_for_state(
+                job_id='j1', target_state=TableauJobFinishCode.CANCELED, check_interval=1
+            )
+
+        # Test PENDING Positive
+        with TableauHook(tableau_conn_id='tableau_test_password') as tableau_hook:
+            tableau_hook.get_job_status = MagicMock(
+                name='get_job_status',
+                side_effect=[
+                    TableauJobFinishCode.PENDING,
+                    TableauJobFinishCode.ERROR,
+                ],
+            )
+            assert tableau_hook.wait_for_state(
+                job_id='j1', target_state=TableauJobFinishCode.PENDING, check_interval=1
+            )
