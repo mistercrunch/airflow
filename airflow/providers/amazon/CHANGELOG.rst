@@ -36,12 +36,16 @@ Bug Fixes
 * ``AWS DataSync default polling adjusted from 5s to 30s (#11011)``
 * ``Fix wrong template_fields_renderers for AWS operators (#16820)``
 * ``AWS DataSync cancel task on exception (#11011) (#16589)``
+* ``Fixed template_fields_renderers for Amazon provider (#17087)``
+* ``removing try-catch block (#17081)``
 
 .. Below changes are excluded from the changelog. Move them to
    appropriate section above if needed. Do not delete the lines(!):
    * ``Removes pylint from our toolchain (#16682)``
    * ``Bump sphinxcontrib-spelling and minor improvements (#16675)``
    * ``Prepare documentation for July release of providers. (#17015)``
+   * ``Added docs &amp; doc ref&#39;s for AWS transfer operators between SFTP &amp; S3 (#16964)``
+   * ``Fixed wrongly escaped characters in amazon&#39;s changelog (#17020)``
 
 2.0.0
 .....

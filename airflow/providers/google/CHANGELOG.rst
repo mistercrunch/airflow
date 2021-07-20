@@ -30,11 +30,15 @@ Bug Fixes
 ~~~~~~~~~
 
 * ``Update alias for field_mask in Google Memmcache (#16975)``
+* ``fix: dataprocpysparkjob project_id as self.project_id (#17075)``
 
 .. Below changes are excluded from the changelog. Move them to
    appropriate section above if needed. Do not delete the lines(!):
    * ``Removes pylint from our toolchain (#16682)``
    * ``Prepare documentation for July release of providers. (#17015)``
+   * ``Fixed wrongly escaped characters in amazon&#39;s changelog (#17020)``
+
+.. Review and move the new changes to one of the sections above:
 
 4.0.0
 .....

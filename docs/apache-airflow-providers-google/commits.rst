@@ -38,16 +38,18 @@ For high-level changelog, see :doc:`package information including changelog <ind
 4.1.0
 .....
 
-Latest change: 2021-07-15
+Latest change: 2021-07-19
 
-================================================================================================  ===========  =================================================================
+================================================================================================  ===========  ===================================================================
 Commit                                                                                            Committed    Subject
-================================================================================================  ===========  =================================================================
+================================================================================================  ===========  ===================================================================
+`026ffe65d <https://github.com/apache/airflow/commit/026ffe65d4738674512f691a56b922e82d0a2309>`_  2021-07-19   ``fix: dataprocpysparkjob project_id as self.project_id (#17075)``
+`d02ded65e <https://github.com/apache/airflow/commit/d02ded65eaa7d2281e249b3fa028605d1b4c52fb>`_  2021-07-15   ``Fixed wrongly escaped characters in amazon's changelog (#17020)``
 `b916b7507 <https://github.com/apache/airflow/commit/b916b7507921129dc48d6add1bdc4b923b60c9b9>`_  2021-07-15   ``Prepare documentation for July release of providers. (#17015)``
 `a3f5c9380 <https://github.com/apache/airflow/commit/a3f5c93806258b5ad396a638ba0169eca7f9d065>`_  2021-07-13   ``Update alias for field_mask in Google Memmcache (#16975)``
 `b0f7f91fe <https://github.com/apache/airflow/commit/b0f7f91fe29d1314b71c76de0f11d2dbe81c5c4a>`_  2021-07-07   ``Standardise dataproc location param to region (#16034)``
 `866a601b7 <https://github.com/apache/airflow/commit/866a601b76e219b3c043e1dbbc8fb22300866351>`_  2021-06-28   ``Removes pylint from our toolchain (#16682)``
-================================================================================================  ===========  =================================================================
+================================================================================================  ===========  ===================================================================
 
 4.0.0
 .....

@@ -19,8 +19,14 @@
 Changelog
 ---------
 
-2.0.1
+2.1.0
 .....
+
+
+Features
+~~~~~~~~
+
+* ``Enable using custom pod launcher in Kubernetes Pod Operator (#16945)``
 
 Bug Fixes
 ~~~~~~~~~
@@ -32,6 +38,7 @@ Bug Fixes
    * ``Updating task dependencies (#16624)``
    * ``Removes pylint from our toolchain (#16682)``
    * ``Prepare documentation for July release of providers. (#17015)``
+   * ``Fixed wrongly escaped characters in amazon&#39;s changelog (#17020)``
 
 2.0.0
 .....

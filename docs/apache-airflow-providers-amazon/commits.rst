@@ -31,11 +31,15 @@ For high-level changelog, see :doc:`package information including changelog <ind
 2.1.0
 .....
 
-Latest change: 2021-07-15
+Latest change: 2021-07-19
 
-================================================================================================  ===========  ===============================================================================
+================================================================================================  ===========  ================================================================================
 Commit                                                                                            Committed    Subject
-================================================================================================  ===========  ===============================================================================
+================================================================================================  ===========  ================================================================================
+`bb1d79cb8 <https://github.com/apache/airflow/commit/bb1d79cb81c5a5a80f97ab4fecfa7db7a52c7b4b>`_  2021-07-19   ``Fixed template_fields_renderers for Amazon provider (#17087)``
+`8f77a54b5 <https://github.com/apache/airflow/commit/8f77a54b53664c3b6dbcf2c955975ad121463550>`_  2021-07-19   ``removing try-catch block (#17081)``
+`cda78333b <https://github.com/apache/airflow/commit/cda78333b4ce9304abe315ab1afe41efe17fd2da>`_  2021-07-18   ``Added docs & doc ref's for AWS transfer operators between SFTP & S3 (#16964)``
+`d02ded65e <https://github.com/apache/airflow/commit/d02ded65eaa7d2281e249b3fa028605d1b4c52fb>`_  2021-07-15   ``Fixed wrongly escaped characters in amazon's changelog (#17020)``
 `b916b7507 <https://github.com/apache/airflow/commit/b916b7507921129dc48d6add1bdc4b923b60c9b9>`_  2021-07-15   ``Prepare documentation for July release of providers. (#17015)``
 `fc0250f1d <https://github.com/apache/airflow/commit/fc0250f1d5c43784f353dbdf4a34089aa96c28e5>`_  2021-07-15   ``Allow attaching to previously launched task in ECSOperator (#16685)``
 `d3f300fba <https://github.com/apache/airflow/commit/d3f300fba8c252cac79a1654fddb91532f44c656>`_  2021-07-11   ``Fix wrong template_fields_renderers for AWS operators (#16820)``
@@ -46,7 +50,7 @@ Commit                                                                          
 `3a57d9fc6 <https://github.com/apache/airflow/commit/3a57d9fc604f4478fd51e20287494d0d7a33f0e4>`_  2021-06-26   ``Bump ''sphinxcontrib-spelling'' and minor improvements (#16675)``
 `2543c74c1 <https://github.com/apache/airflow/commit/2543c74c1927b751e7492df81d762e61d2a4d5f6>`_  2021-06-24   ``AWS DataSync cancel task on exception (#11011) (#16589)``
 `2ab2cbf93 <https://github.com/apache/airflow/commit/2ab2cbf93df9eddfb527fcfd9d7b442678a57662>`_  2021-06-23   ``Update Boto3 API calls in ECSOperator (#16050)``
-================================================================================================  ===========  ===============================================================================
+================================================================================================  ===========  ================================================================================
 
 2.0.0
 .....
