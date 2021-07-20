@@ -16,8 +16,14 @@
 # specific language governing permissions and limitations
 # under the License.
 import copy
+import json
 import logging
+import os
+import shutil
+import socket
+import subprocess
 import sys
+import time
 import unittest.mock
 from collections import namedtuple
 from datetime import date, datetime, timedelta
@@ -27,7 +33,7 @@ from typing import List
 import pytest
 
 from airflow.exceptions import AirflowException
-from airflow.models import DAG, DagRun, TaskInstance as TI
+from airflow.models import Connection, DAG, DagRun, TaskInstance as TI
 from airflow.models.baseoperator import BaseOperator
 from airflow.models.taskinstance import clear_task_instances, set_current_context
 from airflow.operators.dummy import DummyOperator
@@ -56,6 +62,17 @@ TI_CONTEXT_ENV_VARS = [
     'AIRFLOW_CTX_EXECUTION_DATE',
     'AIRFLOW_CTX_DAG_RUN_ID',
 ]
+
+
+@pytest.fixture()
+def pypi_server():
+    if not os.path.exists('/root/packages'):
+        os.makedirs('/root/packages')
+    process = subprocess.Popen(['pypi-server', '--port=8282'])
+    yield
+    process.kill()
+    shutil.rmtree('/root/packages')
+
 
 
 class Call:
@@ -741,6 +758,7 @@ class TestShortCircuitOperator(unittest.TestCase):
 virtualenv_string_args: List[str] = []
 
 
+@pytest.mark.usefixtures("pypi_server")
 class TestPythonVirtualenvOperator(unittest.TestCase):
     def setUp(self):
         super().setUp()
@@ -763,10 +781,12 @@ class TestPythonVirtualenvOperator(unittest.TestCase):
             session.query(DagRun).delete()
             session.query(TI).delete()
 
-    def _run_as_operator(self, fn, python_version=sys.version_info[0], **kwargs):
+    def _run_as_operator(self, fn, python_version=sys.version_info[0], connection_id=None, **kwargs):
 
         task = PythonVirtualenvOperator(
-            python_callable=fn, python_version=python_version, task_id='task', dag=self.dag, **kwargs
+            python_callable=fn, python_version=python_version, task_id='task', dag=self.dag,
+            connection_id=connection_id,
+            **kwargs
         )
         task.run(start_date=DEFAULT_DATE, end_date=DEFAULT_DATE)
         return task
@@ -816,6 +836,50 @@ class TestPythonVirtualenvOperator(unittest.TestCase):
             import funcsigs  # noqa: F401
 
         self._run_as_operator(f, requirements=['funcsigs', 'dill'], system_site_packages=False)
+
+    def test_private_repo_fallback_to_pypi_installation(self):
+
+        c = Connection("private_repo_test_conn",
+                       "private_pypi",
+                       host="localhost",
+                       schema="http",
+                       extra={"pypi_as_fallback": True, "path": "/repository/python/simple"},
+                       port=8282)
+
+        os.environ[f"AIRFLOW_CONN_{c.conn_id.upper()}"] = f'{c.get_uri()}'
+
+        def f():
+            import funcsigs  # noqa: F401
+            import flask  # noqa: F401
+
+        self._run_as_operator(
+            f,
+            requirements=['flask', 'funcsigs'],
+            connection_id="private_repo_test_conn",
+            system_site_packages=False
+        )
+
+    def test_private_package_does_not_exists_repo_requirements(self):
+
+        c = Connection("private_repo_test_conn",
+                       "private_pypi",
+                       host="localhost",
+                       schema="http",
+                       port=8282)
+
+        os.environ[f"AIRFLOW_CONN_{c.conn_id.upper()}"] = f'{c.get_uri()}'
+
+        def f():
+            import funcsigs  # noqa: F401
+            import flask  # noqa: F401
+
+        with pytest.raises(subprocess.CalledProcessError):
+            self._run_as_operator(
+                f,
+                requirements=['flask', 'funcsigs'],
+                connection_id="private_repo_test_conn",
+                system_site_packages=False
+            )
 
     def test_range_requirements(self):
         def f():

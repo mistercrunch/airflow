@@ -20,9 +20,12 @@
 import os
 from collections import deque
 from typing import List, Optional
+from urllib.parse import SplitResult, urlunsplit
 
 import jinja2
 
+from airflow.hooks.base import BaseHook
+from airflow.models import BaseOperator, Connection
 from airflow.utils.process_utils import execute_in_subprocess
 
 
@@ -35,12 +38,44 @@ def _generate_virtualenv_cmd(tmp_dir: str, python_bin: str, system_site_packages
     return cmd
 
 
-def _generate_pip_install_cmd(tmp_dir: str, requirements: List[str]) -> Optional[List[str]]:
+def _generate_pip_install_cmd(tmp_dir: str,
+                              requirements: List[str],
+                              connection_id: Optional[str] = None
+                              ) -> Optional[List[str]]:
     if not requirements:
         return None
-    # direct path alleviates need to activate
-    cmd = [f'{tmp_dir}/bin/pip', 'install']
-    return cmd + requirements
+
+    if connection_id:
+        con: Connection = BaseHook.get_connection(connection_id)
+        user = con.login
+        schema = con.schema or 'https'
+        password = con.get_password()
+        port = con.port or ''
+        host = con.host
+        path = con.extra_dejson.get('path', '')
+        pypi_as_fallback = con.extra_dejson.get('pypi_as_fallback', False)
+
+        if user:
+            netloc = f'{user}:{password}@{host}'
+        else:
+            netloc = host
+
+        netloc = netloc + f':{port}' if port else netloc
+
+        index_url = SplitResult(scheme=schema,
+                                netloc=netloc, path=path, query='', fragment='').geturl()
+
+        private_cmd = [f'{tmp_dir}/bin/pip',
+                       'install',
+                       f'--index-url', index_url]
+
+        if pypi_as_fallback:
+            private_cmd.extend([f'--extra-index-url', 'https://pypi.org/simple'])
+        return private_cmd + requirements
+
+    public_cmd = [f'{tmp_dir}/bin/pip', 'install']
+
+    return public_cmd + requirements
 
 
 def _balance_parens(after_decorator):
@@ -74,7 +109,8 @@ def remove_task_decorator(python_source: str, task_decorator_name: str) -> str:
 
 
 def prepare_virtualenv(
-    venv_directory: str, python_bin: str, system_site_packages: bool, requirements: List[str]
+    venv_directory: str, python_bin: str, system_site_packages: bool, requirements: List[str],
+    connection_id: Optional[str] = None
 ) -> str:
     """
     Creates a virtual environment and installs the additional python packages
@@ -88,12 +124,14 @@ def prepare_virtualenv(
     :type system_site_packages: bool
     :param requirements: List of additional python packages
     :type requirements: List[str]
-    :return: Path to a binary file with Python in a virtual environment.
+    :param connection_id: The connection ID of an http/https connection to use as the index
+        url for installing packages from a private PyPi repository
+    :type connection_id: str
     :rtype: str
     """
     virtualenv_cmd = _generate_virtualenv_cmd(venv_directory, python_bin, system_site_packages)
     execute_in_subprocess(virtualenv_cmd)
-    pip_cmd = _generate_pip_install_cmd(venv_directory, requirements)
+    pip_cmd = _generate_pip_install_cmd(venv_directory, requirements, connection_id)
     if pip_cmd:
         execute_in_subprocess(pip_cmd)
 
