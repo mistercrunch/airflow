@@ -23,13 +23,14 @@ from jsonschema.exceptions import ValidationError
 
 class Param:
     """
-    Class to hold the default vallue of a Param and rule set to do the validations
+    Class to hold the default value of a Param and rule set to do the validations
 
     :param default: The value of this Param object holds
     :type default: Any
     :param description: Optional help text for the Param
     :type description: str
-    :param schema: The validation schema of the Param, if not given then all kwargs except default & description will form the schema
+    :param schema: The validation schema of the Param, if not given then all kwargs except
+    default & description will form the schema
     :type schema: dict
     """
 
@@ -48,9 +49,11 @@ class Param:
 
     def __call__(self, suppress_exception: bool = False) -> Any:
         """
-        Runs the validations and returns the Param's default value. May raise ValueError on failed validations.
+        Runs the validations and returns the Param's default value.
+        May raise ValueError on failed validations.
 
-        :param suppress_exception: To raise an exception or not when the validations fails. If true and validations fails, the return value would be None.
+        :param suppress_exception: To raise an exception or not when the validations fails.
+        If true and validations fails, the return value would be None.
         :type suppress_exception: bool
         """
         try:

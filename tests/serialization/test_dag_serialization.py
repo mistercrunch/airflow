@@ -430,7 +430,7 @@ class TestStringifiedDAGs(unittest.TestCase):
             assert serialized_task.resources == task.resources
 
         for k, v in task.params.items():
-            assert serialized_task.params[k]() == v()
+            assert serialized_task.params[k].dump() == v.dump()
 
         # Check that for Deserialised task, task.subdag is None for all other Operators
         # except for the SubDagOperator where task.subdag is an instance of DAG object
@@ -615,7 +615,8 @@ class TestStringifiedDAGs(unittest.TestCase):
 
         deserialized_dag = SerializedDAG.from_dict(serialized_dag)
         deserialized_simple_task = deserialized_dag.task_dict["simple_task"]
-        assert expected_val == deserialized_simple_task.params
+        for k, v in deserialized_simple_task.params.items():
+            assert expected_val[k] == v.dump()
 
     def test_extra_serialized_field_and_operator_links(self):
         """
