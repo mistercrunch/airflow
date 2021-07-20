@@ -300,7 +300,6 @@ class BackfillJob(BaseJob):
         current_active_dag_count = dag.get_num_active_runs(external_trigger=False)
 
         # check if we are scheduling on top of a already existing dag_run
-        # we could find a "scheduled" run instead of a "backfill"
         runs = DagRun.find(dag_id=dag.dag_id, execution_date=run_date, session=session)
         run: Optional[DagRun]
         if runs:
@@ -769,6 +768,31 @@ class BackfillJob(BaseJob):
 
         if len(run_dates) == 0:
             self.log.info("No run dates were found for the given dates and dag interval.")
+            return
+
+        dag_with_subdags_ids = [dag.dag_id for dag in [self.dag] + self.dag.subdags]
+
+        running_dagruns = DagRun.find(
+            dag_id=dag_with_subdags_ids,
+            execution_start_date=self.bf_start_date,
+            execution_end_date=self.bf_end_date,
+            no_backfills=True,
+            state=State.RUNNING,
+            session=session,
+        )
+        if running_dagruns:
+            for run in running_dagruns:
+                self.log.error(
+                    "Backfill cannot be created for DagRun '%s' in '%s', "
+                    "as there's already '%s' in a RUNNING state. "
+                    "Changing DagRun into BACKFILL would cause scheduler to lose track of executing tasks. "
+                    "Not changing DagRun type into BACKFILL, and trying insert another DagRun into database "
+                    "would cause database constraint violation for dag_id + execution_date combination. "
+                    "Please adjust backfill dates or wait for this DagRun to finish.",
+                    run.dag_id,
+                    run.execution_date.strftime("%Y-%m-%dT%H:%M:%S"),
+                    run.run_type,
+                )
             return
 
         # picklin'

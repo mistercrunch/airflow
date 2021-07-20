@@ -1823,6 +1823,10 @@ class TestSchedulerJob:
 
         assert dr.state == dagrun_state
 
+    @unittest.skip(
+        "Hackish way to test scheduler which doesn't work anymore because the BackfillJob "
+        "doesn't interfere with 'running' DagRuns started by any other job type"
+    )
     def test_dagrun_fail(self):
         """
         DagRuns with one failed and one incomplete root task -> FAILED
@@ -1836,6 +1840,10 @@ class TestSchedulerJob:
             dagrun_state=State.FAILED,
         )
 
+    @unittest.skip(
+        "Hackish way to test scheduler which doesn't work anymore because the BackfillJob "
+        "doesn't interfere with 'running' DagRuns started by any other job type"
+    )
     def test_dagrun_success(self):
         """
         DagRuns with one failed and one successful root task -> SUCCESS
@@ -1849,6 +1857,10 @@ class TestSchedulerJob:
             dagrun_state=State.SUCCESS,
         )
 
+    @unittest.skip(
+        "Hackish way to test scheduler which doesn't work anymore because the BackfillJob "
+        "doesn't interfere with 'running' DagRuns started by any other job type"
+    )
     def test_dagrun_root_fail(self):
         """
         DagRuns with one successful and one failed root task -> FAILED
@@ -1876,9 +1888,6 @@ class TestSchedulerJob:
             state=State.RUNNING,
         )
         self.null_exec.mock_task_fail(dag_id, 'test_dagrun_fail', DEFAULT_DATE)
-
-        with pytest.raises(AirflowException):
-            dag.run(start_date=dr.execution_date, end_date=dr.execution_date, executor=self.null_exec)
 
         # Mark the successful task as never having run since we want to see if the
         # dagrun will be in a running state despite having an unfinished task.
@@ -1908,6 +1917,10 @@ class TestSchedulerJob:
         assert ti_ids == [('current', State.SUCCESS)]
         assert first_run.state in [State.SUCCESS, State.RUNNING]
 
+    @unittest.skip(
+        "Hackish way to test scheduler which doesn't work anymore because the BackfillJob "
+        "doesn't interfere with 'running' DagRuns started by any other job type"
+    )
     def test_dagrun_deadlock_ignore_depends_on_past_advance_ex_date(self):
         """
         DagRun is marked a success if ignore_first_depends_on_past=True
@@ -1927,6 +1940,10 @@ class TestSchedulerJob:
             run_kwargs=dict(ignore_first_depends_on_past=True),
         )
 
+    @unittest.skip(
+        "Hackish way to test scheduler which doesn't work anymore because the BackfillJob "
+        "doesn't interfere with 'running' DagRuns started by any other job type"
+    )
     def test_dagrun_deadlock_ignore_depends_on_past(self):
         """
         Test that ignore_first_depends_on_past doesn't affect results
