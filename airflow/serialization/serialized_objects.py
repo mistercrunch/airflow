@@ -512,6 +512,8 @@ class SerializedBaseOperator(BaseOperator, BaseSerialization):
 
             elif k == "deps":
                 v = cls._deserialize_deps(v)
+            elif k == "params":
+                v = cls._deserialize_operator_params(v)
             elif k in cls._decorated_fields or k not in op.get_serialized_fields():
                 v = cls._deserialize(v)
             # else use v as it is

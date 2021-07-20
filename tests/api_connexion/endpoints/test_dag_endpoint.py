@@ -235,10 +235,14 @@ class TestGetDagDetails(TestDagEndpoint):
             "is_subdag": False,
             "orientation": "LR",
             "owners": ['airflow'],
-            "params": {"foo": {'__type': 'airflow.models.param.Param',
-                               'default': 1,
-                               'description': None,
-                               'schema': {}}},
+            "params": {
+                "foo": {
+                    '__type': 'airflow.models.param.Param',
+                    'default': 1,
+                    'description': None,
+                    'schema': {},
+                }
+            },
             "schedule_interval": {
                 "__type": "TimeDelta",
                 "days": 1,
@@ -344,10 +348,14 @@ class TestGetDagDetails(TestDagEndpoint):
             "is_subdag": False,
             "orientation": "LR",
             "owners": ['airflow'],
-            "params": {"foo": {'__type': 'airflow.models.param.Param',
-                               'default': 1,
-                               'description': None,
-                               'schema': {}}},
+            "params": {
+                "foo": {
+                    '__type': 'airflow.models.param.Param',
+                    'default': 1,
+                    'description': None,
+                    'schema': {},
+                }
+            },
             "schedule_interval": {
                 "__type": "TimeDelta",
                 "days": 1,
@@ -387,10 +395,14 @@ class TestGetDagDetails(TestDagEndpoint):
             'is_subdag': False,
             'orientation': 'LR',
             'owners': ['airflow'],
-            "params": {"foo": {'__type': 'airflow.models.param.Param',
-                               'default': 1,
-                               'description': None,
-                               'schema': {}}},
+            "params": {
+                "foo": {
+                    '__type': 'airflow.models.param.Param',
+                    'default': 1,
+                    'description': None,
+                    'schema': {},
+                }
+            },
             'schedule_interval': {'__type': 'TimeDelta', 'days': 1, 'microseconds': 0, 'seconds': 0},
             'start_date': '2020-06-15T00:00:00+00:00',
             'tags': [{'name': 'example'}],

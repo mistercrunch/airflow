@@ -29,8 +29,7 @@ class Param:
     :type default: Any
     :param description: Optional help text for the Param
     :type description: str
-    :param schema: The validation schema of the Param, if not given then all kwargs except
-    default & description will form the schema
+    :param schema: The validation schema of the Param, if not given then all kwargs except default & description will form the schema
     :type schema: dict
     """
 
@@ -51,8 +50,7 @@ class Param:
         """
         Runs the validations and returns the Param's default value. May raise ValueError on failed validations.
 
-        :param suppress_exception: To raise an exception or not when the validations fails.
-        If true and validations fails, the return value would be None.
+        :param suppress_exception: To raise an exception or not when the validations fails. If true and validations fails, the return value would be None.
         :type suppress_exception: bool
         """
         try:

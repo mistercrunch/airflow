@@ -149,6 +149,7 @@ serialized_simple_dag_ground_truth = {
         },
         "edge_info": {},
         "dag_dependencies": [],
+        "params": {},
     },
 }
 
@@ -409,6 +410,7 @@ class TestStringifiedDAGs(unittest.TestCase):
             'on_retry_callback',
             # Checked separately
             'resources',
+            'params',
         }
 
         assert serialized_task.task_type == task.task_type
@@ -426,6 +428,9 @@ class TestStringifiedDAGs(unittest.TestCase):
             assert task.resources is None or task.resources == []
         else:
             assert serialized_task.resources == task.resources
+
+        for k, v in task.params.items():
+            assert serialized_task.params[k]() == v()
 
         # Check that for Deserialised task, task.subdag is None for all other Operators
         # except for the SubDagOperator where task.subdag is an instance of DAG object
@@ -582,14 +587,17 @@ class TestStringifiedDAGs(unittest.TestCase):
     @parameterized.expand(
         [
             (None, {}),
-            ({"param_1": "value_1"},
-             {"param_1": {
-                 '__type': 'airflow.models.param.Param',
-                 'default': 'value_1',
-                 'description': None,
-                 'schema': {}},
-             }
-             ),
+            (
+                {"param_1": "value_1"},
+                {
+                    "param_1": {
+                        '__type': 'airflow.models.param.Param',
+                        'default': 'value_1',
+                        'description': None,
+                        'schema': {},
+                    },
+                },
+            ),
         ]
     )
     def test_task_params_roundtrip(self, val, expected_val):

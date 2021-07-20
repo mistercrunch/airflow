@@ -45,5 +45,5 @@ with DAG(
         task_id='all_param',
         bash_command="echo {{ params.int_param }} {{ params.str_param }} {{ params.old_param }} "
         "{{ params.simple_param }} {{ params.email_param }} {{ params.task_param }}",
-        params={'task_param': Param('im_a_task_param', type='string')}
+        params={'task_param': Param('im_a_task_param', type='string')},
     )
