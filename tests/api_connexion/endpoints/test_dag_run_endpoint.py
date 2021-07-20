@@ -49,6 +49,18 @@ def configured_app(minimal_app_for_api):
     )
     create_user(
         app,  # type: ignore
+        username="test_dag_view_only",
+        role_name="TestViewDags",
+        permissions=[
+            (permissions.ACTION_CAN_READ, permissions.RESOURCE_DAG),
+            (permissions.ACTION_CAN_CREATE, permissions.RESOURCE_DAG_RUN),
+            (permissions.ACTION_CAN_READ, permissions.RESOURCE_DAG_RUN),
+            (permissions.ACTION_CAN_EDIT, permissions.RESOURCE_DAG_RUN),
+            (permissions.ACTION_CAN_DELETE, permissions.RESOURCE_DAG_RUN),
+        ],
+    )
+    create_user(
+        app,  # type: ignore
         username="test_view_dags",
         role_name="TestViewDags",
         permissions=[
@@ -1070,7 +1082,10 @@ class TestPostDagRun(TestDagRunEndpoint):
 
         assert_401(response)
 
-    def test_should_raises_403_unauthorized(self):
+    @parameterized.expand(
+        ["test_dag_view_only", "test_view_dags", "test_granular_permissions", "test_no_permissions"]
+    )
+    def test_should_raises_403_unauthorized(self, username):
         self._create_dag("TEST_DAG_ID")
         response = self.client.post(
             "api/v1/dags/TEST_DAG_ID/dagRuns",
@@ -1078,6 +1093,6 @@ class TestPostDagRun(TestDagRunEndpoint):
                 "dag_run_id": "TEST_DAG_RUN_ID_1",
                 "execution_date": self.default_time,
             },
-            environ_overrides={'REMOTE_USER': "test_view_dags"},
+            environ_overrides={'REMOTE_USER': username},
         )
         assert response.status_code == 403
