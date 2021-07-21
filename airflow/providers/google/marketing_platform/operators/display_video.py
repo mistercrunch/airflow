@@ -362,7 +362,6 @@ class GoogleDisplayVideo360RunReportOperator(BaseOperator):
 
     template_fields = (
         "report_id",
-        "params",
         "impersonation_chain",
     )
 
@@ -370,7 +369,6 @@ class GoogleDisplayVideo360RunReportOperator(BaseOperator):
         self,
         *,
         report_id: str,
-        params: Dict[str, Any],
         api_version: str = "v1",
         gcp_conn_id: str = "google_cloud_default",
         delegate_to: Optional[str] = None,
@@ -379,7 +377,6 @@ class GoogleDisplayVideo360RunReportOperator(BaseOperator):
     ) -> None:
         super().__init__(**kwargs)
         self.report_id = report_id
-        self.params = params
         self.api_version = api_version
         self.gcp_conn_id = gcp_conn_id
         self.delegate_to = delegate_to
@@ -397,7 +394,7 @@ class GoogleDisplayVideo360RunReportOperator(BaseOperator):
             self.report_id,
             self.params,
         )
-        hook.run_query(query_id=self.report_id, params=self.params)
+        hook.run_query(query_id=self.report_id, params={k: v() for k, v in self.params.items()})
 
 
 class GoogleDisplayVideo360DownloadLineItemsOperator(BaseOperator):

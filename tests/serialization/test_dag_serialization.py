@@ -149,6 +149,7 @@ serialized_simple_dag_ground_truth = {
         },
         "edge_info": {},
         "dag_dependencies": [],
+        "params": {},
     },
 }
 
@@ -359,6 +360,7 @@ class TestStringifiedDAGs(unittest.TestCase):
             # Need to check fields in it, to exclude functions
             'default_args',
             "_task_group",
+            'params',
         }
         for field in fields_to_check:
             assert getattr(serialized_dag, field) == getattr(
@@ -408,6 +410,7 @@ class TestStringifiedDAGs(unittest.TestCase):
             'on_retry_callback',
             # Checked separately
             'resources',
+            'params',
         }
 
         assert serialized_task.task_type == task.task_type
@@ -425,6 +428,9 @@ class TestStringifiedDAGs(unittest.TestCase):
             assert task.resources is None or task.resources == []
         else:
             assert serialized_task.resources == task.resources
+
+        for k, v in task.params.items():
+            assert serialized_task.params[k].dump() == v.dump()
 
         # Check that for Deserialised task, task.subdag is None for all other Operators
         # except for the SubDagOperator where task.subdag is an instance of DAG object
@@ -571,20 +577,27 @@ class TestStringifiedDAGs(unittest.TestCase):
         BaseOperator(task_id='simple_task', dag=dag, start_date=datetime(2019, 8, 1))
 
         serialized_dag = SerializedDAG.to_dict(dag)
-        if val:
-            assert "params" in serialized_dag["dag"]
-        else:
-            assert "params" not in serialized_dag["dag"]
+        assert "params" in serialized_dag["dag"]
 
         deserialized_dag = SerializedDAG.from_dict(serialized_dag)
         deserialized_simple_task = deserialized_dag.task_dict["simple_task"]
-        assert expected_val == deserialized_dag.params
-        assert expected_val == deserialized_simple_task.params
+        assert expected_val == {k: v() for k, v in deserialized_dag.params.items()}
+        assert expected_val == {k: v() for k, v in deserialized_simple_task.params.items()}
 
     @parameterized.expand(
         [
             (None, {}),
-            ({"param_1": "value_1"}, {"param_1": "value_1"}),
+            (
+                {"param_1": "value_1"},
+                {
+                    "param_1": {
+                        '__type': 'airflow.models.param.Param',
+                        'default': 'value_1',
+                        'description': None,
+                        'schema': {},
+                    },
+                },
+            ),
         ]
     )
     def test_task_params_roundtrip(self, val, expected_val):
@@ -602,7 +615,8 @@ class TestStringifiedDAGs(unittest.TestCase):
 
         deserialized_dag = SerializedDAG.from_dict(serialized_dag)
         deserialized_simple_task = deserialized_dag.task_dict["simple_task"]
-        assert expected_val == deserialized_simple_task.params
+        for k, v in deserialized_simple_task.params.items():
+            assert expected_val[k] == v.dump()
 
     def test_extra_serialized_field_and_operator_links(self):
         """
@@ -835,6 +849,7 @@ class TestStringifiedDAGs(unittest.TestCase):
             "has_on_success_callback",
             "has_on_failure_callback",
             "dag_dependencies",
+            "params",
         }
 
         keys_for_backwards_compat: set = {

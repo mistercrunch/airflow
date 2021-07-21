@@ -1476,12 +1476,12 @@ class Airflow(AirflowBaseView):
         origin = get_safe_url(request.values.get('origin'))
         request_conf = request.values.get('conf')
         request_execution_date = request.values.get('execution_date', default=timezone.utcnow().isoformat())
+        dag = current_app.dag_bag.get_dag(dag_id)
 
         if request.method == 'GET':
             # Populate conf textarea with conf requests parameter, or dag.params
             default_conf = ''
 
-            dag = current_app.dag_bag.get_dag(dag_id)
             doc_md = wwwutils.wrapped_markdown(getattr(dag, 'doc_md', None))
             form = DateTimeForm(data={'execution_date': request_execution_date})
 
@@ -1489,7 +1489,9 @@ class Airflow(AirflowBaseView):
                 default_conf = request_conf
             else:
                 try:
-                    default_conf = json.dumps(dag.params, indent=4)
+                    default_conf = json.dumps(
+                        {k: v(suppress_exception=True) for k, v in dag.params.items()}, indent=4
+                    )
                 except TypeError:
                     flash("Could not pre-populate conf field due to non-JSON-serializable data-types")
             return self.render_template(
@@ -1537,15 +1539,21 @@ class Airflow(AirflowBaseView):
                     'airflow/trigger.html', dag_id=dag_id, origin=origin, conf=request_conf, form=form
                 )
 
-        dag = current_app.dag_bag.get_dag(dag_id)
-        dag.create_dagrun(
-            run_type=DagRunType.MANUAL,
-            execution_date=execution_date,
-            state=State.QUEUED,
-            conf=run_conf,
-            external_trigger=True,
-            dag_hash=current_app.dag_bag.dags_hash.get(dag_id),
-        )
+        try:
+            dag.create_dagrun(
+                run_type=DagRunType.MANUAL,
+                execution_date=execution_date,
+                state=State.RUNNING,
+                conf=run_conf,
+                external_trigger=True,
+                dag_hash=current_app.dag_bag.dags_hash.get(dag_id),
+            )
+        except ValueError as ve:
+            flash(f"{ve}", "error")
+            form = DateTimeForm(data={'execution_date': execution_date})
+            return self.render_template(
+                'airflow/trigger.html', dag_id=dag_id, origin=origin, conf=request_conf, form=form
+            )
 
         flash(f"Triggered {dag_id}, it should start any moment now.")
         return redirect(origin)
