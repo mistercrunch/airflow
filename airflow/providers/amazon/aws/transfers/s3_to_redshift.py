@@ -118,7 +118,7 @@ class S3ToRedshiftOperator(BaseOperator):
         copy_statement = self._build_copy_query(credentials_block, copy_options)
 
         if self.truncate_table:
-            truncate_statement = f'TRUNCATE TABLE {self.schema}.{self.table};'
+            truncate_statement = f'DELETE FROM {self.schema}.{self.table};'
             sql = f"""
             BEGIN;
             {truncate_statement}
