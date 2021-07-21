@@ -238,7 +238,6 @@ class LocalTaskJob(BaseJob):
                 include_upstream=False,
                 include_direct_upstream=True,
             )
-
             dag_run.dag = partial_dag
             info = dag_run.task_instance_scheduling_decisions(session)
 

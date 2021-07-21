@@ -3059,6 +3059,8 @@ components:
         - queued
         - none
         - scheduled
+        - deferred
+        - sensing
         - removed
 
     DagState:
