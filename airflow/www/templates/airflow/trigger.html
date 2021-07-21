@@ -24,6 +24,7 @@
   {{ super() }}
   <link rel="stylesheet" type="text/css" href="{{ url_for_asset('codemirror.css') }}">
   <link rel="stylesheet" type="text/css" href="{{ url_for_asset('lint.css') }}">
+  <link rel="stylesheet" type="text/css" href="{{ url_for_asset('switch.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -49,6 +50,13 @@
     <p>
       To access configuration in your DAG use <code>{{ '{{ dag_run.conf }}' }}</code>.
     </p>
+    <div class="form-group">
+      <label class="switch-label">
+        <input class="switch-input" name="unpause" id="unpause" type="checkbox" checked>
+        <span class="switch" aria-hidden="true"></span>
+        Unpause DAG when triggered
+      </label>
+    </div>
     <button type="submit" class="btn btn-primary">Trigger</button>
     <button type="button" class="btn" onclick="location.href = '{{ origin }}'; return false">Cancel</button>
   </form>
