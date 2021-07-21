@@ -43,6 +43,7 @@ using the new parameter to disable mounting the folder.
    * ``Removes pylint from our toolchain (#16682)``
    * ``Prepare documentation for July release of providers. (#17015)``
    * ``Fixed wrongly escaped characters in amazon&#39;s changelog (#17020)``
+   * ``Prepares documentation for RC2 release of Docker Provider (#17066)``
 
 2.0.0
 .....
